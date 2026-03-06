@@ -11,6 +11,8 @@ const EMPTY_REFRESH_PROGRESS = Object.freeze({
 });
 
 let refreshAllProgress = { ...EMPTY_REFRESH_PROGRESS };
+const ACCOUNT_IMPORT_BATCH_SIZE = 50;
+const ACCOUNT_IMPORT_MAX_CONCURRENCY = 4;
 
 function pickImportTokenField(record, keys) {
   const source = record && typeof record === "object" ? record : null;
@@ -77,6 +79,82 @@ function normalizeImportContentForCompatibility(rawContent) {
     return text;
   }
 }
+
+function chunkItems(items, chunkSize) {
+  const normalizedChunkSize = Math.max(1, Number(chunkSize || 0));
+  const out = [];
+  for (let index = 0; index < items.length; index += normalizedChunkSize) {
+    out.push(items.slice(index, index + normalizedChunkSize));
+  }
+  return out;
+}
+
+function createEmptyImportSummary(total) {
+  return {
+    total,
+    created: 0,
+    updated: 0,
+    failed: 0,
+    errors: [],
+  };
+}
+
+function mergeImportBatchResult(summary, batchResult, batchOffset) {
+  const result = batchResult && typeof batchResult === "object" ? batchResult : {};
+  summary.total += Number(result.total || 0);
+  summary.created += Number(result.created || 0);
+  summary.updated += Number(result.updated || 0);
+  summary.failed += Number(result.failed || 0);
+
+  const errors = Array.isArray(result.errors) ? result.errors : [];
+  for (const item of errors) {
+    summary.errors.push({
+      index: batchOffset + Math.max(1, Number(item?.index || 1)),
+      message: String(item?.message || "未知错误"),
+    });
+  }
+}
+
+async function importContentsInParallel(contents, importBatch) {
+  const batches = chunkItems(contents, ACCOUNT_IMPORT_BATCH_SIZE);
+  const summary = createEmptyImportSummary(0);
+  if (!batches.length) {
+    return summary;
+  }
+
+  const workerCount = Math.max(1, Math.min(ACCOUNT_IMPORT_MAX_CONCURRENCY, batches.length));
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < batches.length) {
+      const batchIndex = cursor;
+      cursor += 1;
+
+      const batch = batches[batchIndex];
+      const batchOffset = batchIndex * ACCOUNT_IMPORT_BATCH_SIZE;
+      try {
+        const result = await importBatch(batch);
+        mergeImportBatchResult(summary, result, batchOffset);
+      } catch (err) {
+        summary.total += batch.length;
+        summary.failed += batch.length;
+        summary.errors.push({
+          index: batchOffset + 1,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+      await nextPaintTick();
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return summary;
+}
+
+export const __accountImportTestHooks = {
+  chunkItems,
+  importContentsInParallel,
+};
 
 function nextPaintTick() {
   return new Promise((resolve) => {
@@ -297,13 +375,18 @@ export function createAccountActions({
       await nextPaintTick();
       let res = null;
       try {
-        res = await api.serviceAccountImport(normalizedContents);
+        res = await importContentsInParallel(
+          normalizedContents,
+          async (batchContents) => {
+            const batchResult = await api.serviceAccountImport(batchContents);
+            if (batchResult && batchResult.error) {
+              throw new Error(batchResult.error || "导入失败");
+            }
+            return batchResult;
+          },
+        );
       } catch (err) {
         showToast(err instanceof Error ? err.message : String(err), "error");
-        return;
-      }
-      if (res && res.error) {
-        showToast(res.error || "导入失败", "error");
         return;
       }
       const total = Number(res?.total || 0);

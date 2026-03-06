@@ -415,12 +415,12 @@ jobs:
           $config.build.PSObject.Properties.Remove("beforeBuildCommand")
           $config | ConvertTo-Json -Depth 100 | Set-Content $configPath
 
-      - name: Build macOS app bundle (dmg)
+      - name: Build macOS app bundle (app,dmg)
         working-directory: apps
-        run: pnpm dlx @tauri-apps/cli@${{ env.TAURI_CLI_VERSION }} build --bundles dmg --target ${{ matrix.rust_target }}
+        run: pnpm dlx @tauri-apps/cli@${{ env.TAURI_CLI_VERSION }} build --bundles app,dmg --target ${{ matrix.rust_target }}
 
       - name: Stage legacy macOS portable package
-        if: ${{ matrix.arch == 'arm64' }}
+        if: ${{ matrix.arch == 'x64' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -429,7 +429,7 @@ jobs:
           bundle_root="${release_dir}/bundle"
           test -d "$bundle_root" || { echo "macOS bundle root not found: $bundle_root"; exit 1; }
 
-          bundle_dir="$(find "$bundle_root" -type d -name 'CodexManager.app' | head -n 1)"
+          bundle_dir="$(find "$bundle_root" -type d -path '*/CodexManager.app' | head -n 1)"
           test -n "$bundle_dir" || { echo "macOS app bundle not found under: $bundle_root"; exit 1; }
 
           portable_dir="${release_dir}/portable"

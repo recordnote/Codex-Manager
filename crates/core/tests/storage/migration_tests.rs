@@ -138,6 +138,15 @@ fn init_tracks_schema_migrations_and_is_idempotent() {
         )
         .expect("count 027 migration");
     assert_eq!(applied_027, 1);
+    let applied_028: i64 = storage
+        .conn
+        .query_row(
+            "SELECT COUNT(1) FROM schema_migrations WHERE version = '028_request_logs_drop_legacy_usage_columns'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count 028 migration");
+    assert_eq!(applied_028, 1);
 
     assert!(!storage
         .has_column("accounts", "note")
@@ -166,6 +175,21 @@ fn init_tracks_schema_migrations_and_is_idempotent() {
     assert!(storage
         .has_column("request_logs", "response_adapter")
         .expect("check request_logs.response_adapter"));
+    assert!(!storage
+        .has_column("request_logs", "input_tokens")
+        .expect("check request_logs.input_tokens"));
+    assert!(!storage
+        .has_column("request_logs", "output_tokens")
+        .expect("check request_logs.output_tokens"));
+    assert!(!storage
+        .has_column("request_logs", "estimated_cost_usd")
+        .expect("check request_logs.estimated_cost_usd"));
+    assert!(!storage
+        .has_column("request_logs", "cached_input_tokens")
+        .expect("check request_logs.cached_input_tokens"));
+    assert!(!storage
+        .has_column("request_logs", "reasoning_output_tokens")
+        .expect("check request_logs.reasoning_output_tokens"));
 }
 
 #[test]
@@ -421,4 +445,104 @@ fn accounts_sort_index_migration_adds_sort_updated_at_index() {
     assert!(index_sql.contains("accounts"));
     assert!(index_sql.contains("sort ASC"));
     assert!(index_sql.contains("updated_at DESC"));
+}
+
+#[test]
+fn request_logs_compact_migration_drops_legacy_usage_columns_and_preserves_rows() {
+    let storage = Storage::open_in_memory().expect("open in memory");
+    storage
+        .conn
+        .execute_batch(
+            "CREATE TABLE request_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trace_id TEXT,
+                key_id TEXT,
+                account_id TEXT,
+                request_path TEXT NOT NULL,
+                original_path TEXT,
+                adapted_path TEXT,
+                method TEXT NOT NULL,
+                model TEXT,
+                reasoning_effort TEXT,
+                response_adapter TEXT,
+                upstream_url TEXT,
+                status_code INTEGER,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                estimated_cost_usd REAL,
+                cached_input_tokens INTEGER,
+                reasoning_output_tokens INTEGER,
+                error TEXT,
+                created_at INTEGER NOT NULL
+            );
+            INSERT INTO request_logs (
+                id, trace_id, key_id, account_id, request_path, original_path, adapted_path,
+                method, model, reasoning_effort, response_adapter, upstream_url, status_code,
+                input_tokens, output_tokens, estimated_cost_usd, cached_input_tokens,
+                reasoning_output_tokens, error, created_at
+            ) VALUES (
+                7, 'trc-legacy', 'gk_legacy', 'acc-legacy', '/v1/responses', '/v1/chat/completions',
+                '/v1/responses', 'POST', 'gpt-5.3-codex', 'high', 'OpenAIChatCompletionsJson',
+                'https://chatgpt.com/backend-api/codex/v1/responses', 200,
+                12, 5, 0.25, 3, 2, NULL, 1700000000
+            );",
+        )
+        .expect("create legacy request_logs");
+    storage
+        .ensure_migrations_table()
+        .expect("ensure migration tracker");
+
+    storage.init().expect("run init on legacy request_logs");
+
+    assert!(!storage
+        .has_column("request_logs", "input_tokens")
+        .expect("check compact input_tokens"));
+    assert!(!storage
+        .has_column("request_logs", "output_tokens")
+        .expect("check compact output_tokens"));
+    assert!(!storage
+        .has_column("request_logs", "estimated_cost_usd")
+        .expect("check compact estimated_cost_usd"));
+    assert!(!storage
+        .has_column("request_logs", "cached_input_tokens")
+        .expect("check compact cached_input_tokens"));
+    assert!(!storage
+        .has_column("request_logs", "reasoning_output_tokens")
+        .expect("check compact reasoning_output_tokens"));
+
+    let request_log_row: (i64, String, Option<String>) = storage
+        .conn
+        .query_row(
+            "SELECT id, request_path, response_adapter FROM request_logs WHERE id = 7",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .expect("load compacted request log row");
+    assert_eq!(request_log_row.0, 7);
+    assert_eq!(request_log_row.1, "/v1/responses");
+    assert_eq!(request_log_row.2.as_deref(), Some("OpenAIChatCompletionsJson"));
+
+    let token_row: (Option<i64>, Option<i64>, Option<f64>, Option<i64>, Option<i64>) = storage
+        .conn
+        .query_row(
+            "SELECT input_tokens, output_tokens, estimated_cost_usd, cached_input_tokens, reasoning_output_tokens
+             FROM request_token_stats
+             WHERE request_log_id = 7",
+            [],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .expect("load migrated token stats");
+    assert_eq!(token_row.0, Some(12));
+    assert_eq!(token_row.1, Some(5));
+    assert_eq!(token_row.2, Some(0.25));
+    assert_eq!(token_row.3, Some(3));
+    assert_eq!(token_row.4, Some(2));
 }

@@ -3,6 +3,38 @@ use rusqlite::{Result, Row};
 use super::{request_log_query, RequestLog, RequestLogTodaySummary, RequestTokenStat, Storage};
 
 impl Storage {
+    fn ensure_request_logs_indexes(&self) -> Result<()> {
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_request_logs_created_at ON request_logs(created_at DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_request_logs_status_code_created_at ON request_logs(status_code, created_at DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_request_logs_method_created_at ON request_logs(method, created_at DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_request_logs_key_id_created_at ON request_logs(key_id, created_at DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_request_logs_account_id_created_at ON request_logs(account_id, created_at DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_request_logs_created_at_id ON request_logs(created_at DESC, id DESC)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_request_logs_trace_id_created_at ON request_logs(trace_id, created_at DESC)",
+            [],
+        )?;
+        Ok(())
+    }
+
     pub fn insert_request_log(&self, log: &RequestLog) -> Result<i64> {
         self.conn.execute(
             "INSERT INTO request_logs (
@@ -261,18 +293,7 @@ impl Storage {
             )",
             [],
         )?;
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_request_logs_created_at ON request_logs(created_at DESC)",
-            [],
-        )?;
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_request_logs_account_id_created_at ON request_logs(account_id, created_at DESC)",
-            [],
-        )?;
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_request_logs_created_at_id ON request_logs(created_at DESC, id DESC)",
-            [],
-        )?;
+        self.ensure_request_logs_indexes()?;
         Ok(())
     }
 
@@ -307,6 +328,66 @@ impl Storage {
             "CREATE INDEX IF NOT EXISTS idx_request_logs_trace_id_created_at ON request_logs(trace_id, created_at DESC)",
             [],
         )?;
+        Ok(())
+    }
+
+    pub(super) fn compact_request_logs_legacy_usage_columns(&self) -> Result<()> {
+        self.ensure_request_logs_table()?;
+        self.ensure_request_log_reasoning_column()?;
+        self.ensure_request_log_account_tokens_cost_columns()?;
+        self.ensure_request_log_trace_context_columns()?;
+
+        let legacy_columns = [
+            "input_tokens",
+            "output_tokens",
+            "estimated_cost_usd",
+            "cached_input_tokens",
+            "reasoning_output_tokens",
+        ];
+        let mut has_legacy_columns = false;
+        for column in legacy_columns {
+            if self.has_column("request_logs", column)? {
+                has_legacy_columns = true;
+                break;
+            }
+        }
+        if !has_legacy_columns {
+            return Ok(());
+        }
+
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute_batch(
+            "ALTER TABLE request_logs RENAME TO request_logs_legacy_028;
+             CREATE TABLE request_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trace_id TEXT,
+                key_id TEXT,
+                account_id TEXT,
+                request_path TEXT NOT NULL,
+                original_path TEXT,
+                adapted_path TEXT,
+                method TEXT NOT NULL,
+                model TEXT,
+                reasoning_effort TEXT,
+                response_adapter TEXT,
+                upstream_url TEXT,
+                status_code INTEGER,
+                error TEXT,
+                created_at INTEGER NOT NULL
+             );
+             INSERT INTO request_logs (
+                id, trace_id, key_id, account_id, request_path, original_path, adapted_path,
+                method, model, reasoning_effort, response_adapter, upstream_url, status_code, error, created_at
+             )
+             SELECT
+                id, trace_id, key_id, account_id, request_path, original_path, adapted_path,
+                method, model, reasoning_effort, response_adapter, upstream_url, status_code, error, created_at
+             FROM request_logs_legacy_028;
+             DROP TABLE request_logs_legacy_028;",
+        )?;
+        tx.commit()?;
+
+        self.ensure_request_logs_indexes()?;
         Ok(())
     }
 }

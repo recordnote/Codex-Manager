@@ -5,8 +5,14 @@
 
 ## [Unreleased]
 
+### Fixed
+- 修复 `codexmanager-web` 的访问密码会话跨重启仍可继续使用的问题；关闭并重新打开 Web 进程后，旧登录 Cookie 会失效，需要重新验证密码。
+- 修复源码运行 `codexmanager-web` 时的启动与根路由兼容问题，减少 Web 静态资源与根路径在 Axum 路由下的不一致行为。
+
 ### Changed
-- 暂无。
+- 网关失败响应增加结构化 `errorCode` / `errorDetail` 字段，并同步补充 `X-CodexManager-Error-Code`、`X-CodexManager-Trace-Id` 响应头，便于客户端与日志系统追踪失败链路。
+- 协议适配与桌面启动治理继续收敛，进一步统一 `/v1/chat/completions` / `/v1/responses` 相关兼容语义，并稳固 Web / service / desktop 之间的启动边界。
+- 发布链路继续收敛到 `release-all.yml` 单入口，并复用前端构建产物与协议回归基线，减少重复构建与发布时的协议回归风险。
 
 ## [0.1.6] - 2026-03-07
 

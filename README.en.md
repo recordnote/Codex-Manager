@@ -14,7 +14,11 @@ A local desktop + service toolkit for managing a Codex-compatible ChatGPT accoun
 
 ## Recent Changes
 - Current latest version: `v0.1.6` (2026-03-07)
-- This release mainly fixes the `release-all.yml` fallback path when `run_verify=false`, continues to simplify Windows release artifacts, and improves SOCKS5 upstream proxy support plus settings hints.
+- Current `main` continues to harden the Web auth flow: the `codexmanager-web` password remains persisted, but authenticated sessions are now scoped to the current Web process, so previous cookies no longer survive a full close-and-reopen cycle.
+- Protocol adaptation keeps moving closer to Codex / OpenAI-compatible behavior: `/v1/chat/completions` and `/v1/responses` forwarding are more aligned, and the `tools` / `tool_calls` aggregation, shortened tool-name mapping, and response restoration paths are now preserved across compatible clients such as Cherry Studio, OpenClaw, and Claude Code.
+- Gateway diagnostics are richer: failure responses now expose structured `errorCode` / `errorDetail` fields, along with `X-CodexManager-Error-Code` and `X-CodexManager-Trace-Id` headers; request logs also capture original path, adapted path, and more upstream context for easier debugging.
+- The release pipeline stays consolidated around `release-all.yml` as the single multi-platform entry point; when `run_verify=false`, jobs automatically fall back to a local frontend build instead of requiring a prebuilt artifact, while still reusing frontend artifacts and protocol regression baselines where available.
+- Desktop and settings governance also moved forward: normalized SOCKS5 / HTTP upstream proxy support and hints, configurable listener bind mode, recursive folder-based account import, single-instance window handling, and a more consistent settings layout for common controls.
 - Full version history is now maintained in [CHANGELOG.md](CHANGELOG.md).
 
 ## Maintenance Docs

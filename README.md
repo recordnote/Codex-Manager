@@ -14,7 +14,11 @@
 
 ## 最近变更
 - 当前最新版本：`v0.1.6`（2026-03-07）
-- 本次版本重点修复了 `release-all.yml` 在 `run_verify=false` 时的前端工件回退构建，继续收敛 Windows 发布产物，并完善了 SOCKS5 上游代理支持与提示文案。
+- 当前主分支已继续补齐 Web 安全链路：`codexmanager-web` 的访问密码仍会持久化，但登录会话现在会绑定当前 Web 进程；关闭并重新打开后，旧 Cookie 不再继续生效，必须重新验证密码。
+- 协议适配继续对齐 Codex / OpenAI 兼容生态：`/v1/chat/completions` 与 `/v1/responses` 转发链路进一步统一，`tools` / `tool_calls` 聚合、工具名缩短与响应还原链路已补齐，并覆盖 Cherry Studio、OpenClaw、Claude Code 等兼容场景。
+- 网关诊断能力增强：失败响应增加结构化 `errorCode` / `errorDetail` 字段，并补充 `X-CodexManager-Error-Code`、`X-CodexManager-Trace-Id` 头；请求日志也补充了原始路径、适配路径和更多上游上下文，便于精确排障。
+- 发布体系继续收敛到单一入口：`release-all.yml` 统一负责 Windows / macOS / Linux 一键发布；当 `run_verify=false` 时会自动回退到本地前端构建，不再强依赖预构建工件，同时继续复用前端产物与协议回归基线。
+- 桌面端与设置治理同步完善：新增 SOCKS5 / HTTP 上游代理归一化与提示文案、服务监听地址绑定模式配置、文件夹递归导入账号、单实例窗口治理，以及更统一的设置页常用配置布局。
 - 完整版本历史请查看 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 协作与维护

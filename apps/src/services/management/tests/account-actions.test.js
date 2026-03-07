@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { __accountImportTestHooks } from "../account-actions.js";
+import { __accountImportTestHooks, createAccountActions } from "../account-actions.js";
 
 test("chunkItems splits import payload into fixed-size batches", () => {
   const input = Array.from({ length: 123 }, (_, index) => index + 1);
@@ -65,4 +65,126 @@ test("importContentsInParallel records failed batch as failed items", async () =
   assert.equal(summary.errors.length, 1);
   assert.equal(summary.errors[0].index, 51);
   assert.match(summary.errors[0].message, /batch failed/);
+});
+
+test("deleteSelectedAccounts removes selected ids after bulk delete succeeds", async () => {
+  const previousWindow = globalThis.window;
+  const invokeCalls = [];
+  const toasts = [];
+  let refreshCount = 0;
+
+  globalThis.window = {
+    __TAURI__: {
+      core: {
+        invoke: async (method, params) => {
+          invokeCalls.push({ method, params });
+          if (method === "service_account_delete_many") {
+            return {
+              result: {
+                requested: 2,
+                deleted: 2,
+                failed: 0,
+                deletedAccountIds: ["acc-1", "acc-2"],
+                errors: [],
+              },
+            };
+          }
+          throw new Error(`unexpected invoke: ${method}`);
+        },
+      },
+    },
+  };
+
+  const localState = {
+    selectedAccountIds: new Set(["acc-1", "acc-2"]),
+    usageList: [],
+  };
+  const actions = createAccountActions({
+    state: localState,
+    ensureConnected: async () => true,
+    refreshAccountsAndUsage: async () => {
+      refreshCount += 1;
+      return true;
+    },
+    renderAccountsView: () => {},
+    renderCurrentPageView: () => {},
+    showToast: (message, type = "info") => {
+      toasts.push({ message, type });
+    },
+    showConfirmDialog: async () => true,
+  });
+
+  try {
+    await actions.deleteSelectedAccounts();
+    assert.equal(invokeCalls.length, 1);
+    assert.equal(invokeCalls[0].method, "service_account_delete_many");
+    assert.deepEqual(invokeCalls[0].params.accountIds, ["acc-1", "acc-2"]);
+    assert.equal(localState.selectedAccountIds.size, 0);
+    assert.equal(refreshCount, 1);
+    assert.deepEqual(toasts, [{ message: "已删除 2 个账号", type: "info" }]);
+  } finally {
+    globalThis.window = previousWindow;
+  }
+});
+
+test("deleteSelectedAccounts falls back to single delete when bulk command is unavailable", async () => {
+  const previousWindow = globalThis.window;
+  const invokeCalls = [];
+  const toasts = [];
+  let refreshCount = 0;
+
+  globalThis.window = {
+    __TAURI__: {
+      core: {
+        invoke: async (method, params) => {
+          invokeCalls.push({ method, params });
+          if (method === "service_account_delete_many") {
+            throw new Error("unknown command");
+          }
+          if (method === "service_account_delete" && params.accountId === "acc-1") {
+            return { result: { ok: true } };
+          }
+          if (method === "service_account_delete" && params.accountId === "acc-2") {
+            return { result: { ok: false, error: "delete failed" } };
+          }
+          throw new Error(`unexpected invoke: ${method}`);
+        },
+      },
+    },
+  };
+
+  const localState = {
+    selectedAccountIds: new Set(["acc-1", "acc-2"]),
+    usageList: [],
+  };
+  const actions = createAccountActions({
+    state: localState,
+    ensureConnected: async () => true,
+    refreshAccountsAndUsage: async () => {
+      refreshCount += 1;
+      return true;
+    },
+    renderAccountsView: () => {},
+    renderCurrentPageView: () => {},
+    showToast: (message, type = "info") => {
+      toasts.push({ message, type });
+    },
+    showConfirmDialog: async () => true,
+  });
+
+  try {
+    await actions.deleteSelectedAccounts();
+    assert.deepEqual(
+      invokeCalls.map((item) => item.method),
+      ["service_account_delete_many", "service_account_delete", "service_account_delete"],
+    );
+    assert.deepEqual(Array.from(localState.selectedAccountIds), ["acc-2"]);
+    assert.equal(refreshCount, 1);
+    assert.deepEqual(toasts, [
+      { message: "已删除 1 个账号，失败 1 个", type: "info" },
+      { message: "首个失败账号 acc-2: delete failed", type: "error" },
+    ]);
+  } finally {
+    globalThis.window = previousWindow;
+  }
 });

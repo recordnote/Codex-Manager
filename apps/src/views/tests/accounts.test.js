@@ -58,5 +58,25 @@ test("filterAccounts accepts precomputed derived usage state", () => {
   assert.deepEqual(low.map((item) => item.id), ["a"]);
 });
 
+test("buildAccountDerivedMap marks inactive account as unavailable before usage data", () => {
+  const accounts = [
+    { id: "a", label: "alpha", groupName: "TEAM", status: "inactive" },
+  ];
+  const usage = [
+    {
+      accountId: "a",
+      availabilityStatus: "available",
+      usedPercent: 5,
+      secondaryUsedPercent: 5,
+      windowMinutes: 300,
+      secondaryWindowMinutes: 10080,
+    },
+  ];
+
+  const derived = buildAccountDerivedMap(accounts, usage);
+  assert.equal(derived.get("a")?.status?.level, "bad");
+  assert.equal(derived.get("a")?.status?.text, "不可用");
+});
+
 
 

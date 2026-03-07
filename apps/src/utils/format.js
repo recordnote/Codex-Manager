@@ -116,7 +116,14 @@ export function formatResetLabel(ts) {
   return `重置：${month}月${day}日 ${hh}:${mm}`;
 }
 
-export function calcAvailability(usage) {
+function isInactiveAccount(account) {
+  return String(account?.status || "").trim().toLowerCase() === "inactive";
+}
+
+export function calcAvailability(usage, account = null) {
+  if (isInactiveAccount(account)) {
+    return { text: "不可用", level: "bad" };
+  }
   if (!usage) return { text: "未知", level: "unknown" };
   const normalizedStatus = String(usage.availabilityStatus || "").trim().toLowerCase();
   if (normalizedStatus) {
@@ -180,7 +187,7 @@ export function computeUsageStats(accounts, usageSource) {
   (accounts || []).forEach((acc) => {
     total += 1;
     const usage = usageMap.get(acc.id);
-    const status = calcAvailability(usage);
+    const status = calcAvailability(usage, acc);
     if (status.level === "ok") okCount += 1;
     if (status.level === "warn" || status.level === "bad") unavailableCount += 1;
     const primaryRemain = remainingPercent(usage ? usage.usedPercent : null);

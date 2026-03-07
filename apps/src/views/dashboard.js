@@ -121,7 +121,7 @@ function pickCurrentAccount(accounts, usageMap, requestLogs, manualPreferredAcco
   if (preferredId) {
     const preferred = accountList.find((item) => item.id === preferredId);
     if (preferred) {
-      const status = calcAvailability(usageMap.get(preferred.id));
+      const status = calcAvailability(usageMap.get(preferred.id), preferred);
       if (canParticipateInRouting(status.level)) {
         return preferred;
       }
@@ -141,7 +141,7 @@ function pickCurrentAccount(accounts, usageMap, requestLogs, manualPreferredAcco
   if (latestHit) {
     const found = accountList.find((item) => item.id === latestHit.accountId);
     if (found) {
-      const status = calcAvailability(usageMap.get(found.id));
+      const status = calcAvailability(usageMap.get(found.id), found);
       if (canParticipateInRouting(status.level)) {
         return found;
       }
@@ -150,7 +150,7 @@ function pickCurrentAccount(accounts, usageMap, requestLogs, manualPreferredAcco
 
   // 中文注释：优先展示“参与网关选路”的账号，避免仪表盘显示不可用账号造成误解。
   const firstParticipating = accountList.find((item) => {
-    const status = calcAvailability(usageMap.get(item.id));
+    const status = calcAvailability(usageMap.get(item.id), item);
     return canParticipateInRouting(status.level);
   });
   if (firstParticipating) {
@@ -182,7 +182,7 @@ function renderCurrentAccount(accounts, usageMap, requestLogs, manualPreferredAc
   const account = pickCurrentAccount(accounts, usageMap, requestLogs, manualPreferredAccountId);
   if (!account) return;
   const usage = usageMap.get(account.id);
-  const status = calcAvailability(usage);
+  const status = calcAvailability(usage, account);
 
   const header = document.createElement("div");
   header.className = "panel-header";

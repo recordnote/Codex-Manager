@@ -333,6 +333,16 @@ export async function serviceAccountDelete(accountId) {
   return invoke("service_account_delete", withAddr({ accountId }));
 }
 
+export async function serviceAccountDeleteMany(accountIds) {
+  const normalizedIds = Array.isArray(accountIds)
+    ? accountIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  if (!isTauriRuntime()) {
+    return rpcInvoke("account/deleteMany", { accountIds: normalizedIds });
+  }
+  return invoke("service_account_delete_many", withAddr({ accountIds: normalizedIds }));
+}
+
 export async function serviceAccountDeleteUnavailableFree() {
   if (!isTauriRuntime()) {
     return rpcInvoke("account/deleteUnavailableFree");

@@ -204,6 +204,14 @@
                                         刷新所有
                                     </button>
                                     <button
+                                        id="deleteSelectedAccounts"
+                                        class="danger"
+                                        type="button"
+                                        disabled
+                                    >
+                                        删除选中账号
+                                    </button>
+                                    <button
                                         id="removeUnavailableFree"
                                         class="danger"
                                         type="button"
@@ -234,6 +242,15 @@
                             <table class="data-table account-table">
                                 <thead>
                                     <tr>
+                                        <th class="account-select-col">
+                                            <label class="account-select-head">
+                                                <input
+                                                    id="accountSelectAll"
+                                                    type="checkbox"
+                                                />
+                                                <span>全选</span>
+                                            </label>
+                                        </th>
                                         <th>账号</th>
                                         <th>分组</th>
                                         <th>顺序</th>

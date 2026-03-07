@@ -43,7 +43,7 @@ export function pickBestRecommendations(accounts, usageMap) {
 
   (accounts || []).forEach((account) => {
     const usage = usageMap.get(account.id);
-    const status = calcAvailability(usage);
+    const status = calcAvailability(usage, account);
     // 中文注释：不可用账号不参与推荐（与网关候选池保持一致）。
     if (status.level === "warn" || status.level === "bad") {
       return;

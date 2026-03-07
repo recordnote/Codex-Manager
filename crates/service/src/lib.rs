@@ -13,6 +13,8 @@ mod account_availability;
 mod account_cleanup;
 #[path = "account/account_delete.rs"]
 mod account_delete;
+#[path = "account/account_delete_many.rs"]
+mod account_delete_many;
 #[path = "account/account_export.rs"]
 mod account_export;
 #[path = "account/account_import.rs"]

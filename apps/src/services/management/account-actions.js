@@ -14,6 +14,32 @@ let refreshAllProgress = { ...EMPTY_REFRESH_PROGRESS };
 const ACCOUNT_IMPORT_BATCH_SIZE = 50;
 const ACCOUNT_IMPORT_MAX_CONCURRENCY = 4;
 
+function isMissingCommandError(err) {
+  const message = String(err && err.message ? err.message : err).toLowerCase();
+  if (
+    message.includes("not found")
+    || message.includes("unknown command")
+    || message.includes("no such command")
+    || message.includes("not managed")
+    || message.includes("does not exist")
+    || message.includes("unknown_method")
+  ) {
+    return true;
+  }
+  return message.includes("invalid args") && message.includes("for command");
+}
+
+function ensureSelectedAccountIdSet(sourceState) {
+  if (sourceState?.selectedAccountIds instanceof Set) {
+    return sourceState.selectedAccountIds;
+  }
+  const next = new Set(Array.isArray(sourceState?.selectedAccountIds) ? sourceState.selectedAccountIds : []);
+  if (sourceState && typeof sourceState === "object") {
+    sourceState.selectedAccountIds = next;
+  }
+  return next;
+}
+
 function pickImportTokenField(record, keys) {
   const source = record && typeof record === "object" ? record : null;
   if (!source) return "";
@@ -154,6 +180,7 @@ async function importContentsInParallel(contents, importBatch) {
 export const __accountImportTestHooks = {
   chunkItems,
   importContentsInParallel,
+  ensureSelectedAccountIdSet,
 };
 
 function nextPaintTick() {
@@ -232,6 +259,52 @@ export function createAccountActions({
     }
   };
 
+  function removeSelectedAccountIds(accountIds) {
+    const selected = ensureSelectedAccountIdSet(state);
+    for (const accountId of accountIds || []) {
+      selected.delete(String(accountId || "").trim());
+    }
+  }
+
+  async function deleteAccountsSequentially(accountIds) {
+    const normalizedIds = Array.from(accountIds || [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+    const result = {
+      requested: normalizedIds.length,
+      deleted: 0,
+      failed: 0,
+      deletedAccountIds: [],
+      errors: [],
+    };
+
+    for (const accountId of normalizedIds) {
+      try {
+        let response = await api.serviceAccountDelete(accountId);
+        if (response && response.error === "unknown_method") {
+          response = await api.localAccountDelete(accountId);
+        }
+        if (response && response.ok) {
+          result.deleted += 1;
+          result.deletedAccountIds.push(accountId);
+          continue;
+        }
+        result.failed += 1;
+        result.errors.push({
+          accountId,
+          message: String(response?.error || "删除失败"),
+        });
+      } catch (err) {
+        result.failed += 1;
+        result.errors.push({
+          accountId,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return result;
+  }
+
   async function updateAccountSort(accountId, sort, previousSort) {
     if (Number.isFinite(previousSort) && previousSort === sort) {
       return;
@@ -291,7 +364,7 @@ export function createAccountActions({
     await enqueueAccountOp(async () => {
       const usageList = Array.isArray(state?.usageList) ? state.usageList : [];
       const usage = usageList.find((item) => item && item.accountId === account.id) || null;
-      const status = calcAvailability(usage);
+      const status = calcAvailability(usage, account);
       if (status.level === "warn" || status.level === "bad") {
         showToast(`账号当前不可用（${status.text}），无法锁定`, "error");
         return;
@@ -307,6 +380,66 @@ export function createAccountActions({
       showToast(`已锁定 ${account.label || account.id}，异常前将持续优先使用`);
       renderAccountsView?.();
       renderCurrentPageView?.();
+    });
+  }
+
+  async function deleteSelectedAccounts() {
+    const selectedIds = Array.from(ensureSelectedAccountIdSet(state)).filter(Boolean);
+    if (!selectedIds.length) {
+      showToast("请先勾选要删除的账号", "error");
+      return;
+    }
+    const confirmed = await showConfirmDialog({
+      title: "批量删除账号",
+      message: `确定删除选中的 ${selectedIds.length} 个账号吗？删除后不可恢复。`,
+      confirmText: "删除",
+      cancelText: "取消",
+    });
+    if (!confirmed) return;
+
+    await enqueueAccountOp(async () => {
+      const ok = await ensureConnected();
+      if (!ok) return;
+
+      let result = null;
+      try {
+        result = await api.serviceAccountDeleteMany(selectedIds);
+      } catch (err) {
+        if (!isMissingCommandError(err)) {
+          showToast(err instanceof Error ? err.message : String(err), "error");
+          return;
+        }
+      }
+      if (!result || result.error === "unknown_method") {
+        result = await deleteAccountsSequentially(selectedIds);
+      }
+
+      const deleted = Number(result?.deleted || 0);
+      const failed = Number(result?.failed || 0);
+      const deletedAccountIds = Array.isArray(result?.deletedAccountIds)
+        ? result.deletedAccountIds
+        : [];
+      const errors = Array.isArray(result?.errors) ? result.errors : [];
+
+      removeSelectedAccountIds(deletedAccountIds);
+      await refreshAccountsSection();
+
+      if (deleted > 0 && failed === 0) {
+        showToast(`已删除 ${deleted} 个账号`);
+        return;
+      }
+      if (deleted > 0) {
+        showToast(`已删除 ${deleted} 个账号，失败 ${failed} 个`);
+      } else {
+        showToast(`未删除账号，失败 ${failed} 个`, "error");
+      }
+      if (errors.length > 0) {
+        const first = errors[0];
+        showToast(
+          `首个失败账号 ${String(first?.accountId || "-")}: ${String(first?.message || "未知错误")}`,
+          "error",
+        );
+      }
     });
   }
 
@@ -479,6 +612,7 @@ export function createAccountActions({
   return {
     updateAccountSort,
     deleteAccount,
+    deleteSelectedAccounts,
     importAccountsFromFiles,
     importAccountsFromDirectory,
     setManualPreferredAccount,

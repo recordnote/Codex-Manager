@@ -12,12 +12,15 @@ import {
 const ACCOUNT_ACTION_OPEN_USAGE = "open-usage";
 const ACCOUNT_ACTION_SET_CURRENT = "set-current";
 const ACCOUNT_ACTION_DELETE = "delete";
+const ACCOUNT_FIELD_SELECT = "selected";
 const ACCOUNT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 80, 120, 500];
 const DEFAULT_ACCOUNT_PAGE_SIZE = 5;
 
 let accountRowsEventsBoundEl = null;
 let accountRowsClickHandler = null;
 let accountRowsChangeHandler = null;
+let accountSelectAllBoundEl = null;
+let accountSelectAllChangeHandler = null;
 let accountPaginationBoundRefs = null;
 let accountPageSizeChangeHandler = null;
 let accountPagePrevClickHandler = null;
@@ -70,6 +73,94 @@ export function renderAccountsRefreshProgress(progress = getRefreshAllProgress()
   const lastTaskLabel = String(progress?.lastTaskLabel || "").trim();
   node.hidden = false;
   node.textContent = lastTaskLabel ? `${primaryText} · 最近完成：${lastTaskLabel}` : primaryText;
+}
+
+function getSelectedAccountIdSet() {
+  if (state.selectedAccountIds instanceof Set) {
+    return state.selectedAccountIds;
+  }
+  const next = new Set(Array.isArray(state.selectedAccountIds) ? state.selectedAccountIds : []);
+  state.selectedAccountIds = next;
+  return next;
+}
+
+function pruneSelectedAccountIds(accounts = state.accountList) {
+  const selected = getSelectedAccountIdSet();
+  if (selected.size === 0) {
+    return;
+  }
+  const validIds = new Set(
+    Array.from(accounts || [])
+      .map((item) => String(item?.id || "").trim())
+      .filter(Boolean),
+  );
+  for (const accountId of Array.from(selected)) {
+    if (!validIds.has(accountId)) {
+      selected.delete(accountId);
+    }
+  }
+}
+
+function isAccountSelected(accountId) {
+  if (!accountId) return false;
+  return getSelectedAccountIdSet().has(accountId);
+}
+
+function setAccountSelected(accountId, selected) {
+  const normalizedId = String(accountId || "").trim();
+  if (!normalizedId) return false;
+  const selectedIds = getSelectedAccountIdSet();
+  const had = selectedIds.has(normalizedId);
+  if (selected) {
+    if (!had) {
+      selectedIds.add(normalizedId);
+      return true;
+    }
+    return false;
+  }
+  if (had) {
+    selectedIds.delete(normalizedId);
+    return true;
+  }
+  return false;
+}
+
+function setPageSelection(accounts, selected) {
+  let changed = false;
+  for (const account of accounts || []) {
+    changed = setAccountSelected(account?.id, selected) || changed;
+  }
+  return changed;
+}
+
+function syncAccountSelectionControls(accounts) {
+  const pageItems = Array.isArray(accounts) ? accounts : [];
+  const selectedIds = getSelectedAccountIdSet();
+  const currentPageIds = pageItems
+    .map((item) => String(item?.id || "").trim())
+    .filter(Boolean);
+  let selectedOnPage = 0;
+  for (const accountId of currentPageIds) {
+    if (selectedIds.has(accountId)) {
+      selectedOnPage += 1;
+    }
+  }
+
+  if (dom.accountSelectAll) {
+    const allSelected = currentPageIds.length > 0 && selectedOnPage === currentPageIds.length;
+    dom.accountSelectAll.disabled = currentPageIds.length === 0;
+    dom.accountSelectAll.checked = allSelected;
+    dom.accountSelectAll.indeterminate =
+      selectedOnPage > 0 && selectedOnPage < currentPageIds.length;
+  }
+
+  if (dom.deleteSelectedAccountsBtn) {
+    const count = selectedIds.size;
+    dom.deleteSelectedAccountsBtn.disabled = count === 0;
+    dom.deleteSelectedAccountsBtn.textContent = count > 0
+      ? `删除选中账号（${count}）`
+      : "删除选中账号";
+  }
 }
 
 function getGroupOptions(accounts) {
@@ -148,6 +239,19 @@ function renderMiniUsageLine(label, remain, secondary) {
   return line;
 }
 
+function createSelectCell(account) {
+  const cellSelect = document.createElement("td");
+  cellSelect.className = "account-col-select";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "account-select-checkbox";
+  checkbox.setAttribute("data-field", ACCOUNT_FIELD_SELECT);
+  checkbox.checked = isAccountSelected(account?.id);
+  checkbox.setAttribute("aria-label", `选择账号 ${account?.label || account?.id || ""}`);
+  cellSelect.appendChild(checkbox);
+  return cellSelect;
+}
+
 function createStatusTag(status) {
   const statusTag = document.createElement("span");
   statusTag.className = "status-tag";
@@ -161,6 +265,7 @@ function createStatusTag(status) {
 
 function createAccountCell(account, accountDerived) {
   const cellAccount = document.createElement("td");
+  cellAccount.className = "account-col-account";
   const accountWrap = document.createElement("div");
   accountWrap.className = "cell-stack";
   const primaryRemain = accountDerived?.primaryRemain ?? null;
@@ -198,12 +303,14 @@ function createAccountCell(account, accountDerived) {
 
 function createGroupCell(account) {
   const cellGroup = document.createElement("td");
+  cellGroup.className = "account-col-group";
   cellGroup.textContent = normalizeGroupName(account.groupName) || "-";
   return cellGroup;
 }
 
 function createSortCell(account) {
   const cellSort = document.createElement("td");
+  cellSort.className = "account-col-sort";
   const sortInput = document.createElement("input");
   sortInput.className = "sort-input";
   sortInput.type = "number";
@@ -216,6 +323,7 @@ function createSortCell(account) {
 
 function createUpdatedCell(usage) {
   const cellUpdated = document.createElement("td");
+  cellUpdated.className = "account-col-updated";
   const updatedText = document.createElement("strong");
   updatedText.textContent = usage && usage.capturedAt ? formatTs(usage.capturedAt) : "未知";
   cellUpdated.appendChild(updatedText);
@@ -224,6 +332,7 @@ function createUpdatedCell(usage) {
 
 function createActionsCell(isDeletable) {
   const cellActions = document.createElement("td");
+  cellActions.className = "account-col-actions";
   const actionsWrap = document.createElement("div");
   actionsWrap.className = "cell-actions";
   const btn = document.createElement("button");
@@ -264,7 +373,7 @@ function syncSetCurrentButton(actionsWrap, status) {
 function renderEmptyRow(message) {
   const emptyRow = document.createElement("tr");
   const emptyCell = document.createElement("td");
-  emptyCell.colSpan = 6;
+  emptyCell.colSpan = 7;
   emptyCell.textContent = message;
   emptyRow.appendChild(emptyCell);
   dom.accountRows.appendChild(emptyRow);
@@ -280,11 +389,13 @@ function renderAccountRow(account, accountDerivedMap, { onDelete }) {
     status: { text: "未知", level: "unknown" },
   };
 
+  row.appendChild(createSelectCell(account));
   row.appendChild(createAccountCell(account, accountDerived));
   row.appendChild(createGroupCell(account));
   row.appendChild(createSortCell(account));
 
   const cellStatus = document.createElement("td");
+  cellStatus.className = "account-col-status";
   cellStatus.appendChild(createStatusTag(accountDerived.status));
   row.appendChild(cellStatus);
 
@@ -342,6 +453,52 @@ function requestAccountsPageReload() {
     return;
   }
   rerenderAccountsPage();
+}
+
+function getRenderedAccountsContext() {
+  const usingRemotePagination = state.accountPageLoaded === true;
+  const sourceAccounts = usingRemotePagination ? state.accountPageItems : state.accountList;
+  const accountDerivedMap = getAccountDerivedMapCached(sourceAccounts, state.usageList);
+  const pageContext = usingRemotePagination
+    ? getRemoteAccountPageContext(state.accountPageItems, state.accountPageTotal)
+    : getAccountPageContext(filterAccounts(
+      state.accountList,
+      accountDerivedMap,
+      state.accountSearch,
+      state.accountFilter,
+      state.accountGroupFilter,
+    ));
+  return {
+    usingRemotePagination,
+    sourceAccounts,
+    accountDerivedMap,
+    pageContext,
+  };
+}
+
+function ensureAccountSelectAllEventsBound() {
+  if (!dom.accountSelectAll) {
+    return;
+  }
+  if (!accountSelectAllChangeHandler) {
+    accountSelectAllChangeHandler = (event) => {
+      const nextSelected = Boolean(event?.target?.checked);
+      const { pageContext } = getRenderedAccountsContext();
+      const changed = setPageSelection(pageContext.items, nextSelected);
+      syncAccountSelectionControls(pageContext.items);
+      if (changed) {
+        rerenderAccountsPage();
+      }
+    };
+  }
+  if (accountSelectAllBoundEl && accountSelectAllBoundEl !== dom.accountSelectAll) {
+    accountSelectAllBoundEl.removeEventListener("change", accountSelectAllChangeHandler);
+  }
+  if (accountSelectAllBoundEl === dom.accountSelectAll) {
+    return;
+  }
+  dom.accountSelectAll.addEventListener("change", accountSelectAllChangeHandler);
+  accountSelectAllBoundEl = dom.accountSelectAll;
 }
 
 function ensureAccountPaginationEventsBound() {
@@ -502,8 +659,12 @@ function updateAccountRow(row, account, accountDerivedMap, { onDelete }) {
     status: { text: "未知", level: "unknown" },
   };
 
-  // Column 0: account cell
-  const cellAccount = row.children[0];
+  const selectInput = row.querySelector?.(`input[data-field='${ACCOUNT_FIELD_SELECT}']`);
+  if (selectInput) {
+    selectInput.checked = isAccountSelected(account.id);
+  }
+
+  const cellAccount = row.querySelector?.(".account-col-account");
   const title = cellAccount?.querySelector?.("strong");
   const meta = cellAccount?.querySelector?.("small");
   if (title) title.textContent = account.label || "-";
@@ -511,12 +672,11 @@ function updateAccountRow(row, account, accountDerivedMap, { onDelete }) {
   const mini = cellAccount?.querySelector?.(".mini-usage");
   updateMiniUsage(mini, accountDerived.usage, accountDerived.primaryRemain, accountDerived.secondaryRemain);
 
-  // Column 1: group
-  const cellGroup = row.children[1];
+  const cellGroup = row.querySelector?.(".account-col-group");
   if (cellGroup) cellGroup.textContent = normalizeGroupName(account.groupName) || "-";
 
-  // Column 2: sort input (avoid clobbering user input while focused)
-  const sortInput = row.querySelector?.("input[data-field='sort']");
+  const sortCell = row.querySelector?.(".account-col-sort");
+  const sortInput = sortCell?.querySelector?.("input[data-field='sort']");
   if (sortInput) {
     const next = account.sort != null ? String(account.sort) : "0";
     if (document.activeElement !== sortInput) {
@@ -525,20 +685,20 @@ function updateAccountRow(row, account, accountDerivedMap, { onDelete }) {
     }
   }
 
-  // Column 3: status
-  const statusTag = row.querySelector?.(".status-tag");
+  const statusCell = row.querySelector?.(".account-col-status");
+  const statusTag = statusCell?.querySelector?.(".status-tag");
   updateStatusTag(statusTag, accountDerived.status);
 
-  // Column 4: updated
-  const updatedStrong = row.children[4]?.querySelector?.("strong");
+  const updatedCell = row.querySelector?.(".account-col-updated");
+  const updatedStrong = updatedCell?.querySelector?.("strong");
   if (updatedStrong) {
     updatedStrong.textContent = accountDerived.usage && accountDerived.usage.capturedAt
       ? formatTs(accountDerived.usage.capturedAt)
       : "未知";
   }
 
-  // Column 5: actions
-  const actionsWrap = row.children[5]?.querySelector?.(".cell-actions");
+  const actionsCell = row.querySelector?.(".account-col-actions");
+  const actionsWrap = actionsCell?.querySelector?.(".cell-actions");
   syncDeleteButton(actionsWrap, Boolean(onDelete));
   syncSetCurrentButton(actionsWrap, accountDerived.status);
   return row;
@@ -584,6 +744,8 @@ function syncAccountRows(filtered, accountDerivedMap, { onDelete }) {
     }
     cursor = next;
   }
+
+  syncAccountSelectionControls(filtered);
 }
 
 function getAccountFromRow(row, lookup) {
@@ -616,6 +778,17 @@ export function handleAccountRowsClick(target, handlers = accountRowHandlers, lo
 }
 
 export function handleAccountRowsChange(target, handlers = accountRowHandlers) {
+  const selectInput = target?.closest?.(`input[data-field='${ACCOUNT_FIELD_SELECT}']`);
+  if (selectInput) {
+    const row = selectInput.closest("tr[data-account-id]");
+    if (!row) return false;
+    const accountId = row.dataset.accountId;
+    if (!accountId) return false;
+    const changed = setAccountSelected(accountId, Boolean(selectInput.checked));
+    const { pageContext } = getRenderedAccountsContext();
+    syncAccountSelectionControls(pageContext.items);
+    return changed;
+  }
   const sortInput = target?.closest?.("input[data-field='sort']");
   if (!sortInput) return false;
   const row = sortInput.closest("tr[data-account-id]");
@@ -688,27 +861,20 @@ export function renderAccounts({
   onRefreshPage,
 }) {
   ensureAccountRowsEventsBound();
+  ensureAccountSelectAllEventsBound();
   renderAccountsRefreshProgress();
   accountRowHandlers = { onUpdateSort, onOpenUsage, onSetCurrentAccount, onDelete, onRefreshPage };
   syncGroupFilterSelect(getGroupOptions(state.accountList), state.accountList);
-  const usingRemotePagination = state.accountPageLoaded === true;
-  const sourceAccounts = usingRemotePagination ? state.accountPageItems : state.accountList;
-  const accountDerivedMap = getAccountDerivedMapCached(sourceAccounts, state.usageList);
-
-  const pageContext = usingRemotePagination
-    ? getRemoteAccountPageContext(state.accountPageItems, state.accountPageTotal)
-    : getAccountPageContext(filterAccounts(
-      state.accountList,
-      accountDerivedMap,
-      state.accountSearch,
-      state.accountFilter,
-      state.accountGroupFilter,
-    ));
+  if (state.accountList.length > 0) {
+    pruneSelectedAccountIds(state.accountList);
+  }
+  const { pageContext, accountDerivedMap } = getRenderedAccountsContext();
   renderAccountPagination(pageContext);
 
   if (pageContext.total === 0) {
     accountLookupById = new Map();
-    const hasAccounts = usingRemotePagination ? state.accountList.length > 0 : state.accountList.length > 0;
+    syncAccountSelectionControls([]);
+    const hasAccounts = state.accountList.length > 0;
     const message = hasAccounts ? "当前筛选条件下无结果" : "暂无账号";
     removeAllAccountRows();
     renderEmptyRow(message);

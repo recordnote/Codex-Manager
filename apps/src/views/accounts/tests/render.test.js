@@ -163,6 +163,8 @@ class FakeElement {
     this.style = {};
     this.hidden = false;
     this.disabled = false;
+    this.checked = false;
+    this.indeterminate = false;
     this.value = "";
     this.type = "";
     this.colSpan = 1;
@@ -335,6 +337,10 @@ function createAccountsLayout() {
   const toolbar = new FakeElement("div");
   toolbar.className = "accounts-toolbar";
   const groupFilter = new FakeElement("select");
+  const selectAll = new FakeElement("input");
+  selectAll.type = "checkbox";
+  const deleteSelectedAccountsBtn = new FakeElement("button");
+  deleteSelectedAccountsBtn.type = "button";
   const panel = new FakeElement("div");
   panel.className = "panel";
   const tableWrap = new FakeElement("div");
@@ -377,6 +383,8 @@ function createAccountsLayout() {
   return {
     toolbar,
     groupFilter,
+    selectAll,
+    deleteSelectedAccountsBtn,
     rows,
     pagination,
     summary,
@@ -400,11 +408,16 @@ function visibleDataRows(rows) {
   return rows.children.filter((child) => child.tagName === "TR" && child.dataset.accountId);
 }
 
+function getAccountCell(row) {
+  return row.querySelector(".account-col-account");
+}
+
 test("renderAccounts paginates rows and page size changes reset to first page", () => {
   const previousDocument = globalThis.document;
   const previousDom = {
     accountsToolbar: dom.accountsToolbar,
     accountGroupFilter: dom.accountGroupFilter,
+    accountSelectAll: dom.accountSelectAll,
     accountRows: dom.accountRows,
     accountPagination: dom.accountPagination,
     accountPaginationSummary: dom.accountPaginationSummary,
@@ -412,6 +425,7 @@ test("renderAccounts paginates rows and page size changes reset to first page", 
     accountPagePrev: dom.accountPagePrev,
     accountPageInfo: dom.accountPageInfo,
     accountPageNext: dom.accountPageNext,
+    deleteSelectedAccountsBtn: dom.deleteSelectedAccountsBtn,
   };
   const previousState = {
     accountList: state.accountList,
@@ -424,12 +438,14 @@ test("renderAccounts paginates rows and page size changes reset to first page", 
     accountPageItems: state.accountPageItems,
     accountPageTotal: state.accountPageTotal,
     accountPageLoaded: state.accountPageLoaded,
+    selectedAccountIds: state.selectedAccountIds,
   };
 
   globalThis.document = new FakeDocument();
   const layout = createAccountsLayout();
   dom.accountsToolbar = layout.toolbar;
   dom.accountGroupFilter = layout.groupFilter;
+  dom.accountSelectAll = layout.selectAll;
   dom.accountRows = layout.rows;
   dom.accountPagination = layout.pagination;
   dom.accountPaginationSummary = layout.summary;
@@ -437,6 +453,7 @@ test("renderAccounts paginates rows and page size changes reset to first page", 
   dom.accountPagePrev = layout.prev;
   dom.accountPageInfo = layout.info;
   dom.accountPageNext = layout.next;
+  dom.deleteSelectedAccountsBtn = layout.deleteSelectedAccountsBtn;
 
   state.accountList = Array.from({ length: 25 }, (_, index) => makeAccount(index + 1));
   state.usageList = [];
@@ -448,20 +465,23 @@ test("renderAccounts paginates rows and page size changes reset to first page", 
   state.accountPageItems = [];
   state.accountPageTotal = 0;
   state.accountPageLoaded = false;
+  state.selectedAccountIds = new Set();
 
   try {
     renderAccounts({});
     assert.equal(visibleDataRows(layout.rows).length, 20);
-    assert.match(visibleDataRows(layout.rows)[0].children[0].textContent, /账号1/);
+    assert.match(getAccountCell(visibleDataRows(layout.rows)[0]).textContent, /账号1/);
     assert.equal(layout.summary.textContent, "共 25 个账号，当前显示 1-20");
     assert.equal(layout.info.textContent, "第 1 / 2 页");
     assert.equal(layout.prev.disabled, true);
     assert.equal(layout.next.disabled, false);
+    assert.equal(layout.selectAll.checked, false);
+    assert.equal(layout.deleteSelectedAccountsBtn.disabled, true);
 
     layout.next.dispatch("click", { target: layout.next });
     assert.equal(state.accountPage, 2);
     assert.equal(visibleDataRows(layout.rows).length, 5);
-    assert.match(visibleDataRows(layout.rows)[0].children[0].textContent, /账号21/);
+    assert.match(getAccountCell(visibleDataRows(layout.rows)[0]).textContent, /账号21/);
     assert.equal(layout.info.textContent, "第 2 / 2 页");
 
     layout.pageSize.value = "10";
@@ -469,13 +489,14 @@ test("renderAccounts paginates rows and page size changes reset to first page", 
     assert.equal(state.accountPage, 1);
     assert.equal(state.accountPageSize, 10);
     assert.equal(visibleDataRows(layout.rows).length, 10);
-    assert.match(visibleDataRows(layout.rows)[0].children[0].textContent, /账号1/);
+    assert.match(getAccountCell(visibleDataRows(layout.rows)[0]).textContent, /账号1/);
     assert.equal(layout.summary.textContent, "共 25 个账号，当前显示 1-10");
     assert.equal(layout.info.textContent, "第 1 / 3 页");
   } finally {
     globalThis.document = previousDocument;
     dom.accountsToolbar = previousDom.accountsToolbar;
     dom.accountGroupFilter = previousDom.accountGroupFilter;
+    dom.accountSelectAll = previousDom.accountSelectAll;
     dom.accountRows = previousDom.accountRows;
     dom.accountPagination = previousDom.accountPagination;
     dom.accountPaginationSummary = previousDom.accountPaginationSummary;
@@ -483,6 +504,7 @@ test("renderAccounts paginates rows and page size changes reset to first page", 
     dom.accountPagePrev = previousDom.accountPagePrev;
     dom.accountPageInfo = previousDom.accountPageInfo;
     dom.accountPageNext = previousDom.accountPageNext;
+    dom.deleteSelectedAccountsBtn = previousDom.deleteSelectedAccountsBtn;
     state.accountList = previousState.accountList;
     state.usageList = previousState.usageList;
     state.accountSearch = previousState.accountSearch;
@@ -493,6 +515,7 @@ test("renderAccounts paginates rows and page size changes reset to first page", 
     state.accountPageItems = previousState.accountPageItems;
     state.accountPageTotal = previousState.accountPageTotal;
     state.accountPageLoaded = previousState.accountPageLoaded;
+    state.selectedAccountIds = previousState.selectedAccountIds;
   }
 });
 
@@ -501,6 +524,7 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
   const previousDom = {
     accountsToolbar: dom.accountsToolbar,
     accountGroupFilter: dom.accountGroupFilter,
+    accountSelectAll: dom.accountSelectAll,
     accountRows: dom.accountRows,
     accountPagination: dom.accountPagination,
     accountPaginationSummary: dom.accountPaginationSummary,
@@ -508,6 +532,7 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
     accountPagePrev: dom.accountPagePrev,
     accountPageInfo: dom.accountPageInfo,
     accountPageNext: dom.accountPageNext,
+    deleteSelectedAccountsBtn: dom.deleteSelectedAccountsBtn,
   };
   const previousState = {
     accountList: state.accountList,
@@ -520,12 +545,14 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
     accountPageItems: state.accountPageItems,
     accountPageTotal: state.accountPageTotal,
     accountPageLoaded: state.accountPageLoaded,
+    selectedAccountIds: state.selectedAccountIds,
   };
 
   globalThis.document = new FakeDocument();
   const layout = createAccountsLayout();
   dom.accountsToolbar = layout.toolbar;
   dom.accountGroupFilter = layout.groupFilter;
+  dom.accountSelectAll = layout.selectAll;
   dom.accountRows = layout.rows;
   dom.accountPagination = layout.pagination;
   dom.accountPaginationSummary = layout.summary;
@@ -533,6 +560,7 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
   dom.accountPagePrev = layout.prev;
   dom.accountPageInfo = layout.info;
   dom.accountPageNext = layout.next;
+  dom.deleteSelectedAccountsBtn = layout.deleteSelectedAccountsBtn;
 
   state.accountList = Array.from({ length: 25 }, (_, index) => makeAccount(index + 1));
   state.usageList = [];
@@ -544,6 +572,7 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
   state.accountPageItems = state.accountList.slice(5, 10);
   state.accountPageTotal = 25;
   state.accountPageLoaded = true;
+  state.selectedAccountIds = new Set();
 
   let refreshCount = 0;
 
@@ -554,7 +583,7 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
       },
     });
     assert.equal(visibleDataRows(layout.rows).length, 5);
-    assert.match(visibleDataRows(layout.rows)[0].children[0].textContent, /账号6/);
+    assert.match(getAccountCell(visibleDataRows(layout.rows)[0]).textContent, /账号6/);
     assert.equal(layout.summary.textContent, "共 25 个账号，当前显示 6-10");
     assert.equal(layout.info.textContent, "第 2 / 5 页");
 
@@ -571,6 +600,7 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
     globalThis.document = previousDocument;
     dom.accountsToolbar = previousDom.accountsToolbar;
     dom.accountGroupFilter = previousDom.accountGroupFilter;
+    dom.accountSelectAll = previousDom.accountSelectAll;
     dom.accountRows = previousDom.accountRows;
     dom.accountPagination = previousDom.accountPagination;
     dom.accountPaginationSummary = previousDom.accountPaginationSummary;
@@ -578,6 +608,7 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
     dom.accountPagePrev = previousDom.accountPagePrev;
     dom.accountPageInfo = previousDom.accountPageInfo;
     dom.accountPageNext = previousDom.accountPageNext;
+    dom.deleteSelectedAccountsBtn = previousDom.deleteSelectedAccountsBtn;
     state.accountList = previousState.accountList;
     state.usageList = previousState.usageList;
     state.accountSearch = previousState.accountSearch;
@@ -588,5 +619,120 @@ test("renderAccounts uses remote page items and pagination actions trigger refre
     state.accountPageItems = previousState.accountPageItems;
     state.accountPageTotal = previousState.accountPageTotal;
     state.accountPageLoaded = previousState.accountPageLoaded;
+    state.selectedAccountIds = previousState.selectedAccountIds;
+  }
+});
+
+test("renderAccounts syncs row checkbox, select-all and batch delete count", () => {
+  const previousDocument = globalThis.document;
+  const previousDom = {
+    accountsToolbar: dom.accountsToolbar,
+    accountGroupFilter: dom.accountGroupFilter,
+    accountSelectAll: dom.accountSelectAll,
+    accountRows: dom.accountRows,
+    accountPagination: dom.accountPagination,
+    accountPaginationSummary: dom.accountPaginationSummary,
+    accountPageSize: dom.accountPageSize,
+    accountPagePrev: dom.accountPagePrev,
+    accountPageInfo: dom.accountPageInfo,
+    accountPageNext: dom.accountPageNext,
+    deleteSelectedAccountsBtn: dom.deleteSelectedAccountsBtn,
+  };
+  const previousState = {
+    accountList: state.accountList,
+    usageList: state.usageList,
+    accountSearch: state.accountSearch,
+    accountFilter: state.accountFilter,
+    accountGroupFilter: state.accountGroupFilter,
+    accountPage: state.accountPage,
+    accountPageSize: state.accountPageSize,
+    accountPageItems: state.accountPageItems,
+    accountPageTotal: state.accountPageTotal,
+    accountPageLoaded: state.accountPageLoaded,
+    selectedAccountIds: state.selectedAccountIds,
+  };
+
+  globalThis.document = new FakeDocument();
+  const layout = createAccountsLayout();
+  dom.accountsToolbar = layout.toolbar;
+  dom.accountGroupFilter = layout.groupFilter;
+  dom.accountSelectAll = layout.selectAll;
+  dom.accountRows = layout.rows;
+  dom.accountPagination = layout.pagination;
+  dom.accountPaginationSummary = layout.summary;
+  dom.accountPageSize = layout.pageSize;
+  dom.accountPagePrev = layout.prev;
+  dom.accountPageInfo = layout.info;
+  dom.accountPageNext = layout.next;
+  dom.deleteSelectedAccountsBtn = layout.deleteSelectedAccountsBtn;
+
+  state.accountList = Array.from({ length: 3 }, (_, index) => makeAccount(index + 1));
+  state.usageList = [];
+  state.accountSearch = "";
+  state.accountFilter = "all";
+  state.accountGroupFilter = "all";
+  state.accountPage = 1;
+  state.accountPageSize = 5;
+  state.accountPageItems = [];
+  state.accountPageTotal = 0;
+  state.accountPageLoaded = false;
+  state.selectedAccountIds = new Set();
+
+  try {
+    renderAccounts({});
+    const rows = visibleDataRows(layout.rows);
+    const firstCheckbox = rows[0].querySelector("input[data-field='selected']");
+    const secondCheckbox = rows[1].querySelector("input[data-field='selected']");
+    assert.equal(firstCheckbox.checked, false);
+    assert.equal(layout.selectAll.checked, false);
+    assert.equal(layout.selectAll.indeterminate, false);
+    assert.equal(layout.deleteSelectedAccountsBtn.disabled, true);
+
+    firstCheckbox.checked = true;
+    handleAccountRowsChange(firstCheckbox, {});
+    assert.deepEqual(Array.from(state.selectedAccountIds), ["acc-1"]);
+    assert.equal(layout.selectAll.checked, false);
+    assert.equal(layout.selectAll.indeterminate, true);
+    assert.equal(layout.deleteSelectedAccountsBtn.disabled, false);
+    assert.equal(layout.deleteSelectedAccountsBtn.textContent, "删除选中账号（1）");
+
+    layout.selectAll.checked = true;
+    layout.selectAll.dispatch("change", { target: layout.selectAll });
+    assert.equal(state.selectedAccountIds.size, 3);
+    assert.equal(layout.selectAll.checked, true);
+    assert.equal(layout.selectAll.indeterminate, false);
+    assert.equal(secondCheckbox.checked, true);
+    assert.equal(layout.deleteSelectedAccountsBtn.textContent, "删除选中账号（3）");
+
+    layout.selectAll.checked = false;
+    layout.selectAll.dispatch("change", { target: layout.selectAll });
+    assert.equal(state.selectedAccountIds.size, 0);
+    assert.equal(layout.selectAll.checked, false);
+    assert.equal(layout.selectAll.indeterminate, false);
+    assert.equal(layout.deleteSelectedAccountsBtn.disabled, true);
+  } finally {
+    globalThis.document = previousDocument;
+    dom.accountsToolbar = previousDom.accountsToolbar;
+    dom.accountGroupFilter = previousDom.accountGroupFilter;
+    dom.accountSelectAll = previousDom.accountSelectAll;
+    dom.accountRows = previousDom.accountRows;
+    dom.accountPagination = previousDom.accountPagination;
+    dom.accountPaginationSummary = previousDom.accountPaginationSummary;
+    dom.accountPageSize = previousDom.accountPageSize;
+    dom.accountPagePrev = previousDom.accountPagePrev;
+    dom.accountPageInfo = previousDom.accountPageInfo;
+    dom.accountPageNext = previousDom.accountPageNext;
+    dom.deleteSelectedAccountsBtn = previousDom.deleteSelectedAccountsBtn;
+    state.accountList = previousState.accountList;
+    state.usageList = previousState.usageList;
+    state.accountSearch = previousState.accountSearch;
+    state.accountFilter = previousState.accountFilter;
+    state.accountGroupFilter = previousState.accountGroupFilter;
+    state.accountPage = previousState.accountPage;
+    state.accountPageSize = previousState.accountPageSize;
+    state.accountPageItems = previousState.accountPageItems;
+    state.accountPageTotal = previousState.accountPageTotal;
+    state.accountPageLoaded = previousState.accountPageLoaded;
+    state.selectedAccountIds = previousState.selectedAccountIds;
   }
 });

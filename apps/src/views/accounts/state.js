@@ -60,7 +60,7 @@ export function buildAccountDerivedMap(accounts, usageSource) {
       secondaryRemain: remainingPercent(
         usage ? usage.secondaryUsedPercent : null,
       ),
-      status: calcAvailability(usage),
+      status: calcAvailability(usage, account),
     });
   }
   return derived;

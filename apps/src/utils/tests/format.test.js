@@ -57,6 +57,19 @@ test("calcAvailability maps backend unavailable status to unified label", () => 
   assert.equal(result.text, "不可用");
 });
 
+test("calcAvailability prefers inactive account status before usage snapshot", () => {
+  const usage = {
+    availabilityStatus: "available",
+    usedPercent: 0,
+    windowMinutes: 300,
+    secondaryUsedPercent: 0,
+    secondaryWindowMinutes: 10080,
+  };
+  const result = calcAvailability(usage, { status: "inactive" });
+  assert.equal(result.level, "bad");
+  assert.equal(result.text, "不可用");
+});
+
 test("calcAvailability treats partial secondary fields as unavailable", () => {
   const usage = {
     usedPercent: 10,

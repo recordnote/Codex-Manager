@@ -28,6 +28,7 @@ export const state = {
   accountPageItems: [],
   accountPageTotal: 0,
   accountPageLoaded: false,
+  selectedAccountIds: new Set(),
   manualPreferredAccountId: "",
   currentUsageAccount: null,
   activeLoginId: null,

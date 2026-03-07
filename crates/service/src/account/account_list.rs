@@ -81,7 +81,7 @@ pub(crate) fn read_accounts(
     let mut accounts = storage
         .list_accounts_filtered(query.as_deref(), group_filter.as_deref())
         .map_err(|err| format!("list accounts failed: {err}"))?;
-    accounts.retain(|account| matches_filter(filter, usage_by_account.get(&account.id)));
+    accounts.retain(|account| matches_filter(filter, account, usage_by_account.get(&account.id)));
 
     let total = accounts.len() as i64;
     if pagination_requested {
@@ -148,12 +148,21 @@ fn clamp_page(page: i64, total: i64, page_size: i64) -> i64 {
     normalized_page.min(total_pages)
 }
 
-fn matches_filter(filter: AccountFilter, snapshot: Option<&UsageSnapshotRecord>) -> bool {
+fn matches_filter(
+    filter: AccountFilter,
+    account: &Account,
+    snapshot: Option<&UsageSnapshotRecord>,
+) -> bool {
     match filter {
         AccountFilter::All => true,
-        AccountFilter::Active => snapshot
-            .map(|item| matches!(evaluate_snapshot(item), Availability::Available))
-            .unwrap_or(false),
+        AccountFilter::Active => {
+            if account.status.trim().eq_ignore_ascii_case("inactive") {
+                return false;
+            }
+            snapshot
+                .map(|item| matches!(evaluate_snapshot(item), Availability::Available))
+                .unwrap_or(false)
+        }
         AccountFilter::Low => snapshot.map(is_low_quota).unwrap_or(false),
     }
 }
@@ -175,5 +184,6 @@ fn to_account_summary(acc: Account) -> AccountSummary {
         label: acc.label,
         group_name: acc.group_name,
         sort: acc.sort,
+        status: acc.status,
     }
 }

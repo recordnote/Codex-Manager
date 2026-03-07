@@ -193,6 +193,15 @@ async fn service_account_delete(
 }
 
 #[tauri::command]
+async fn service_account_delete_many(
+    addr: Option<String>,
+    account_ids: Vec<String>,
+) -> Result<serde_json::Value, String> {
+    let params = serde_json::json!({ "accountIds": account_ids });
+    rpc_call_in_background("account/deleteMany", addr, Some(params)).await
+}
+
+#[tauri::command]
 async fn service_account_delete_unavailable_free(
     addr: Option<String>,
 ) -> Result<serde_json::Value, String> {
@@ -731,6 +740,7 @@ pub fn run() {
             service_initialize,
             service_account_list,
             service_account_delete,
+            service_account_delete_many,
             service_account_delete_unavailable_free,
             service_account_update,
             service_account_import,

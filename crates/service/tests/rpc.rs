@@ -228,6 +228,51 @@ fn rpc_account_list_supports_pagination() {
         })
         .collect::<Vec<_>>();
     assert_eq!(ids, vec!["acc-3", "acc-4", "acc-5"]);
+    assert_eq!(
+        items[0].get("status").and_then(|value| value.as_str()),
+        Some("active")
+    );
+}
+
+#[test]
+fn rpc_account_delete_many_deletes_requested_accounts() {
+    let ctx = RpcTestContext::new("rpc-account-delete-many");
+    ctx.seed_accounts(4);
+    let server = codexmanager_service::start_one_shot_server().expect("start server");
+
+    let req = JsonRpcRequest {
+        id: 11,
+        method: "account/deleteMany".to_string(),
+        params: Some(serde_json::json!({
+            "accountIds": ["acc-1", "acc-3", "missing"]
+        })),
+    };
+    let json = serde_json::to_string(&req).expect("serialize");
+    let v = post_rpc(&server.addr, &json);
+    let result = v.get("result").expect("result");
+
+    assert_eq!(
+        result.get("requested").and_then(|value| value.as_u64()),
+        Some(3)
+    );
+    assert_eq!(
+        result.get("deleted").and_then(|value| value.as_u64()),
+        Some(2)
+    );
+    assert_eq!(
+        result.get("failed").and_then(|value| value.as_u64()),
+        Some(1)
+    );
+    let deleted = result
+        .get("deletedAccountIds")
+        .and_then(|value| value.as_array())
+        .expect("deleted ids");
+    assert_eq!(deleted.len(), 2);
+
+    let storage = Storage::open(ctx.db_path()).expect("open db");
+    let remaining = storage.list_accounts().expect("list remaining");
+    let ids = remaining.into_iter().map(|item| item.id).collect::<Vec<_>>();
+    assert_eq!(ids, vec!["acc-0", "acc-2"]);
 }
 
 #[test]

@@ -1,8 +1,8 @@
 use codexmanager_core::rpc::types::{AccountListParams, JsonRpcRequest, JsonRpcResponse};
 
 use crate::{
-    account_cleanup, account_delete, account_export, account_import, account_list, account_update,
-    auth_login, auth_tokens,
+    account_cleanup, account_delete, account_delete_many, account_export, account_import,
+    account_list, account_update, auth_login, auth_tokens,
 };
 
 pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
@@ -28,6 +28,22 @@ pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
         "account/delete" => {
             let account_id = super::str_param(req, "accountId").unwrap_or("");
             super::ok_or_error(account_delete::delete_account(account_id))
+        }
+        "account/deleteMany" => {
+            let account_ids = req
+                .params
+                .as_ref()
+                .and_then(|params| params.get("accountIds"))
+                .and_then(|value| value.as_array())
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| item.as_str())
+                        .map(|item| item.to_string())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            super::value_or_error(account_delete_many::delete_accounts(account_ids))
         }
         "account/deleteUnavailableFree" => {
             super::value_or_error(account_cleanup::delete_unavailable_free_accounts())

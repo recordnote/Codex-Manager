@@ -441,13 +441,7 @@ jobs:
             dmg_arch="x64"
           fi
 
-          version="$(python3 - <<'PY'
-import json
-from pathlib import Path
-config = json.loads(Path("apps/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
-print(config["version"])
-PY
-)"
+          version="$(python3 -c 'import json, pathlib; print(json.loads(pathlib.Path("apps/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"])')"
 
           stage_dir="$(mktemp -d)"
           trap 'rm -rf "$stage_dir"' EXIT

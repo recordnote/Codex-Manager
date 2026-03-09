@@ -8,6 +8,7 @@ pub(super) mod fallback_branch;
 pub(super) mod header_profile;
 pub(super) mod openai_base;
 pub(super) mod outcome;
+pub(super) mod payload_rewrite;
 pub(super) mod postprocess;
 pub(super) mod precheck;
 pub(super) mod primary_attempt;

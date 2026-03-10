@@ -41,6 +41,8 @@ test("createSettingsController normalizes loaded snapshot and updates state.serv
       routeStrategy: "balanced",
       cpaNoCookieHeaderModeEnabled: "1",
       upstreamProxyUrl: " http://127.0.0.1:7890 ",
+      sseKeepaliveIntervalMs: "16000",
+      upstreamStreamTimeoutMs: "0",
       backgroundTasks: {
         usagePollIntervalSecs: "30",
       },
@@ -68,6 +70,8 @@ test("createSettingsController normalizes loaded snapshot and updates state.serv
   assert.equal(settings.routeStrategy, "balanced");
   assert.equal(settings.cpaNoCookieHeaderModeEnabled, true);
   assert.equal(settings.upstreamProxyUrl, "http://127.0.0.1:7890");
+  assert.equal(settings.sseKeepaliveIntervalMs, 16000);
+  assert.equal(settings.upstreamStreamTimeoutMs, 0);
   assert.equal(settings.backgroundTasks.usagePollIntervalSecs, 30);
   assert.equal(settings.webAccessPasswordConfigured, true);
   assert.equal(state.serviceAddr, "localhost:5050");
@@ -108,4 +112,6 @@ test("createSettingsController exposes service listen mode actions used by main.
   assert.equal(typeof controller.applyServiceListenModeToService, "function");
   assert.equal(typeof controller.syncServiceListenModeOnStartup, "function");
   assert.equal(typeof controller.normalizeUpstreamProxyUrl, "function");
+  assert.equal(typeof controller.initGatewayTransportSetting, "function");
+  assert.equal(typeof controller.readGatewayTransportForm, "function");
 });

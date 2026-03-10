@@ -16,6 +16,7 @@ export function createBootstrapRunner(deps) {
     initRouteStrategySetting,
     initCpaNoCookieHeaderModeSetting,
     initUpstreamProxySetting,
+    initGatewayTransportSetting,
     initBackgroundTasksSetting,
     initEnvOverridesSetting,
     updateWebAccessPasswordState,
@@ -46,6 +47,7 @@ export function createBootstrapRunner(deps) {
     initRouteStrategySetting();
     initCpaNoCookieHeaderModeSetting();
     initUpstreamProxySetting();
+    initGatewayTransportSetting();
     initBackgroundTasksSetting();
     initEnvOverridesSetting();
     updateWebAccessPasswordState(initialSettings.webAccessPasswordConfigured);

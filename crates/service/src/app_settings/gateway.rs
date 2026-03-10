@@ -5,7 +5,8 @@ use serde::Deserialize;
 use super::{
     normalize_optional_text, save_persisted_app_setting, save_persisted_bool_setting,
     APP_SETTING_GATEWAY_BACKGROUND_TASKS_KEY, APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY,
-    APP_SETTING_GATEWAY_ROUTE_STRATEGY_KEY, APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
+    APP_SETTING_GATEWAY_ROUTE_STRATEGY_KEY, APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY,
+    APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY, APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY,
 };
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -62,6 +63,32 @@ pub fn set_gateway_upstream_proxy_url(proxy_url: Option<&str>) -> Result<Option<
         applied.as_deref(),
     )?;
     Ok(applied)
+}
+
+pub fn set_gateway_upstream_stream_timeout_ms(timeout_ms: u64) -> Result<u64, String> {
+    let applied = gateway::set_upstream_stream_timeout_ms(timeout_ms);
+    save_persisted_app_setting(
+        APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY,
+        Some(&applied.to_string()),
+    )?;
+    Ok(applied)
+}
+
+pub fn current_gateway_upstream_stream_timeout_ms() -> u64 {
+    gateway::current_upstream_stream_timeout_ms()
+}
+
+pub fn set_gateway_sse_keepalive_interval_ms(interval_ms: u64) -> Result<u64, String> {
+    let applied = gateway::set_sse_keepalive_interval_ms(interval_ms)?;
+    save_persisted_app_setting(
+        APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY,
+        Some(&applied.to_string()),
+    )?;
+    Ok(applied)
+}
+
+pub fn current_gateway_sse_keepalive_interval_ms() -> u64 {
+    gateway::current_sse_keepalive_interval_ms()
 }
 
 pub fn set_gateway_background_tasks(

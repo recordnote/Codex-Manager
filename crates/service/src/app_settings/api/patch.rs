@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use super::{
     set_close_to_tray_on_close_setting, set_env_overrides, set_gateway_background_tasks,
     set_gateway_cpa_no_cookie_header_mode, set_gateway_route_strategy,
-    set_gateway_upstream_proxy_url, set_lightweight_mode_on_close_to_tray_setting,
+    set_gateway_sse_keepalive_interval_ms, set_gateway_upstream_proxy_url,
+    set_gateway_upstream_stream_timeout_ms, set_lightweight_mode_on_close_to_tray_setting,
     set_saved_service_addr, set_service_bind_mode, set_ui_low_transparency_enabled, set_ui_theme,
     set_update_auto_check_enabled, BackgroundTasksInput,
 };
@@ -23,6 +24,8 @@ pub(super) struct AppSettingsPatch {
     route_strategy: Option<String>,
     cpa_no_cookie_header_mode_enabled: Option<bool>,
     upstream_proxy_url: Option<String>,
+    upstream_stream_timeout_ms: Option<u64>,
+    sse_keepalive_interval_ms: Option<u64>,
     background_tasks: Option<BackgroundTasksInput>,
     env_overrides: Option<HashMap<String, String>>,
     web_access_password: Option<String>,
@@ -66,6 +69,12 @@ pub(super) fn apply_app_settings_patch(patch: AppSettingsPatch) -> Result<(), St
     }
     if let Some(proxy_url) = patch.upstream_proxy_url {
         let _ = set_gateway_upstream_proxy_url(Some(&proxy_url))?;
+    }
+    if let Some(timeout_ms) = patch.upstream_stream_timeout_ms {
+        let _ = set_gateway_upstream_stream_timeout_ms(timeout_ms)?;
+    }
+    if let Some(interval_ms) = patch.sse_keepalive_interval_ms {
+        let _ = set_gateway_sse_keepalive_interval_ms(interval_ms)?;
     }
     if let Some(background_tasks) = patch.background_tasks {
         let _ = set_gateway_background_tasks(background_tasks)?;

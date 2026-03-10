@@ -9,6 +9,7 @@ import {
   appSettingsSet,
   serviceGatewayBackgroundTasksSet,
   serviceGatewayHeaderPolicySet,
+  serviceGatewayTransportSet,
   serviceGatewayUpstreamProxySet,
   serviceGatewayRouteStrategySet,
   serviceUsageRefresh,
@@ -166,6 +167,13 @@ let saveUpstreamProxyUrlSetting;
 let setUpstreamProxyInput;
 let setUpstreamProxyHint;
 let initUpstreamProxySetting;
+let normalizeGatewayTransportSettings;
+let readGatewayTransportSetting;
+let saveGatewayTransportSetting;
+let setGatewayTransportForm;
+let readGatewayTransportForm;
+let setGatewayTransportHint;
+let initGatewayTransportSetting;
 let normalizeBackgroundTasksSettings;
 let readBackgroundTasksSetting;
 let saveBackgroundTasksSetting;
@@ -190,10 +198,12 @@ let closeWebSecurityModal;
 let persistServiceAddrInput;
 let uiLowTransparencyToggleId;
 let upstreamProxyHintText;
+let gatewayTransportHintText;
 let backgroundTasksRestartKeysDefault;
 let applyRouteStrategyToService;
 let applyCpaNoCookieHeaderModeToService;
 let applyUpstreamProxyToService;
+let applyGatewayTransportToService;
 let applyBackgroundTasksToService;
 let syncRuntimeSettingsForCurrentProbe;
 let syncRuntimeSettingsOnStartup;
@@ -236,6 +246,7 @@ settingsRuntime = createMainSettingsRuntime({
   serviceGatewayRouteStrategySet,
   serviceGatewayHeaderPolicySet,
   serviceGatewayUpstreamProxySet,
+  serviceGatewayTransportSet,
   serviceGatewayBackgroundTasksSet,
 });
 
@@ -286,6 +297,13 @@ settingsRuntime = createMainSettingsRuntime({
   setUpstreamProxyInput,
   setUpstreamProxyHint,
   initUpstreamProxySetting,
+  normalizeGatewayTransportSettings,
+  readGatewayTransportSetting,
+  saveGatewayTransportSetting,
+  setGatewayTransportForm,
+  readGatewayTransportForm,
+  setGatewayTransportHint,
+  initGatewayTransportSetting,
   normalizeBackgroundTasksSettings,
   readBackgroundTasksSetting,
   saveBackgroundTasksSetting,
@@ -310,10 +328,12 @@ settingsRuntime = createMainSettingsRuntime({
   persistServiceAddrInput,
   uiLowTransparencyToggleId,
   upstreamProxyHintText,
+  gatewayTransportHintText,
   backgroundTasksRestartKeysDefault,
   applyRouteStrategyToService,
   applyCpaNoCookieHeaderModeToService,
   applyUpstreamProxyToService,
+  applyGatewayTransportToService,
   applyBackgroundTasksToService,
   syncRuntimeSettingsForCurrentProbe,
   syncRuntimeSettingsOnStartup,
@@ -532,6 +552,7 @@ const bootstrap = createBootstrapRunner({
   initRouteStrategySetting,
   initCpaNoCookieHeaderModeSetting,
   initUpstreamProxySetting,
+  initGatewayTransportSetting,
   initBackgroundTasksSetting,
   initEnvOverridesSetting,
   updateWebAccessPasswordState,
@@ -605,6 +626,14 @@ const bootstrap = createBootstrapRunner({
       normalizeUpstreamProxyUrl,
       applyUpstreamProxyToService,
       upstreamProxyHintText,
+      readGatewayTransportSetting,
+      readGatewayTransportForm,
+      saveGatewayTransportSetting,
+      setGatewayTransportForm,
+      normalizeGatewayTransportSettings,
+      setGatewayTransportHint,
+      applyGatewayTransportToService,
+      gatewayTransportHintText,
       readBackgroundTasksSetting,
       readBackgroundTasksForm,
       saveBackgroundTasksSetting,

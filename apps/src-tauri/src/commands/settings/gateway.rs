@@ -110,3 +110,23 @@ pub async fn service_gateway_upstream_proxy_set(
     let params = serde_json::json!({ "proxyUrl": proxy_url });
     rpc_call_in_background("gateway/upstreamProxy/set", addr, Some(params)).await
 }
+
+#[tauri::command]
+pub async fn service_gateway_transport_get(
+    addr: Option<String>,
+) -> Result<serde_json::Value, String> {
+    rpc_call_in_background("gateway/transport/get", addr, None).await
+}
+
+#[tauri::command]
+pub async fn service_gateway_transport_set(
+    addr: Option<String>,
+    sse_keepalive_interval_ms: Option<u64>,
+    upstream_stream_timeout_ms: Option<u64>,
+) -> Result<serde_json::Value, String> {
+    let params = serde_json::json!({
+      "sseKeepaliveIntervalMs": sse_keepalive_interval_ms,
+      "upstreamStreamTimeoutMs": upstream_stream_timeout_ms
+    });
+    rpc_call_in_background("gateway/transport/set", addr, Some(params)).await
+}

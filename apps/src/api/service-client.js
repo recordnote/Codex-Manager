@@ -174,3 +174,18 @@ export async function serviceGatewayUpstreamProxySet(proxyUrl) {
   }
   return invoke("service_gateway_upstream_proxy_set", withAddr({ proxyUrl: normalized }));
 }
+
+export async function serviceGatewayTransportGet() {
+  if (!isTauriRuntime()) {
+    return rpcInvoke("gateway/transport/get");
+  }
+  return invoke("service_gateway_transport_get", withAddr());
+}
+
+export async function serviceGatewayTransportSet(settings = {}) {
+  const payload = settings && typeof settings === "object" ? settings : {};
+  if (!isTauriRuntime()) {
+    return rpcInvoke("gateway/transport/set", payload);
+  }
+  return invoke("service_gateway_transport_set", withAddr(payload));
+}

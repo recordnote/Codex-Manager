@@ -19,6 +19,8 @@ pub(crate) const APP_SETTINGS_ENV_RESERVED_KEYS: &[&str] = &[
     "CODEXMANAGER_ROUTE_STRATEGY",
     "CODEXMANAGER_CPA_NO_COOKIE_HEADER_MODE",
     "CODEXMANAGER_UPSTREAM_PROXY_URL",
+    "CODEXMANAGER_UPSTREAM_STREAM_TIMEOUT_MS",
+    "CODEXMANAGER_SSE_KEEPALIVE_INTERVAL_MS",
     "CODEXMANAGER_DISABLE_POLLING",
     "CODEXMANAGER_USAGE_POLLING_ENABLED",
     "CODEXMANAGER_USAGE_POLL_INTERVAL_SECS",
@@ -259,6 +261,13 @@ pub(crate) const ENV_OVERRIDE_CATALOG: &[EnvOverrideCatalogItem] = &[
         "1",
     ),
     EnvOverrideCatalogItem::new(
+        "CODEXMANAGER_SSE_KEEPALIVE_INTERVAL_MS",
+        "SSE 保活间隔（毫秒）",
+        ENV_OVERRIDE_SCOPE_SERVICE,
+        ENV_OVERRIDE_APPLY_MODE_RUNTIME,
+        "15000",
+    ),
+    EnvOverrideCatalogItem::new(
         "CODEXMANAGER_TRACE_BODY_PREVIEW_MAX_BYTES",
         "Trace Body 预览上限（字节）",
         ENV_OVERRIDE_SCOPE_SERVICE,
@@ -326,7 +335,7 @@ pub(crate) const ENV_OVERRIDE_CATALOG: &[EnvOverrideCatalogItem] = &[
         "上游流式超时（毫秒）",
         ENV_OVERRIDE_SCOPE_SERVICE,
         ENV_OVERRIDE_APPLY_MODE_RUNTIME,
-        "300000",
+        "1800000",
     ),
     EnvOverrideCatalogItem::new(
         "CODEXMANAGER_UPSTREAM_TOTAL_TIMEOUT_MS",

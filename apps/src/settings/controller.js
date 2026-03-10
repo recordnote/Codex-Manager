@@ -93,6 +93,7 @@ export function createSettingsController(deps = {}) {
     normalizeRouteStrategy,
     normalizeCpaNoCookieHeaderMode,
     normalizeUpstreamProxyUrl,
+    normalizeGatewayTransportSettings: snapshotStore.normalizeGatewayTransportSettings,
     normalizeBackgroundTasksSettings: snapshotStore.normalizeBackgroundTasksSettings,
   });
 
@@ -167,6 +168,13 @@ export function createSettingsController(deps = {}) {
     setUpstreamProxyHint: runtimeSettings.setUpstreamProxyHint,
     normalizeUpstreamProxyUrl,
     initUpstreamProxySetting: runtimeSettings.initUpstreamProxySetting,
+    normalizeGatewayTransportSettings: snapshotStore.normalizeGatewayTransportSettings,
+    readGatewayTransportSetting: runtimeSettings.readGatewayTransportSetting,
+    saveGatewayTransportSetting: runtimeSettings.saveGatewayTransportSetting,
+    setGatewayTransportForm: runtimeSettings.setGatewayTransportForm,
+    readGatewayTransportForm: runtimeSettings.readGatewayTransportForm,
+    setGatewayTransportHint: runtimeSettings.setGatewayTransportHint,
+    initGatewayTransportSetting: runtimeSettings.initGatewayTransportSetting,
     normalizeBackgroundTasksSettings: snapshotStore.normalizeBackgroundTasksSettings,
     readBackgroundTasksSetting: runtimeSettings.readBackgroundTasksSetting,
     saveBackgroundTasksSetting: runtimeSettings.saveBackgroundTasksSetting,
@@ -191,6 +199,7 @@ export function createSettingsController(deps = {}) {
     persistServiceAddrInput: runtimeSettings.persistServiceAddrInput,
     uiLowTransparencyToggleId: uiPreferences.uiLowTransparencyToggleId,
     upstreamProxyHintText: runtimeSettings.upstreamProxyHintText,
+    gatewayTransportHintText: runtimeSettings.gatewayTransportHintText,
     backgroundTasksRestartKeysDefault: runtimeSettings.backgroundTasksRestartKeysDefault,
   };
 }

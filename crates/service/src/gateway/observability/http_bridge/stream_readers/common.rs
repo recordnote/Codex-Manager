@@ -118,6 +118,19 @@ pub(super) fn sse_keepalive_interval() -> Duration {
     Duration::from_millis(interval_ms.max(1))
 }
 
+pub(super) fn current_sse_keepalive_interval_ms() -> u64 {
+    SSE_KEEPALIVE_INTERVAL_MS.load(Ordering::Relaxed).max(1)
+}
+
+pub(super) fn set_sse_keepalive_interval_ms(interval_ms: u64) -> Result<u64, String> {
+    if interval_ms == 0 {
+        return Err("SSE keepalive interval must be greater than 0".to_string());
+    }
+    SSE_KEEPALIVE_INTERVAL_MS.store(interval_ms, Ordering::Relaxed);
+    std::env::set_var(ENV_SSE_KEEPALIVE_INTERVAL_MS, interval_ms.to_string());
+    Ok(interval_ms)
+}
+
 pub(super) fn collector_output_text_trimmed(
     usage_collector: &Arc<Mutex<PassthroughSseCollector>>,
 ) -> Option<String> {

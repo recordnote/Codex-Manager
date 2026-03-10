@@ -41,7 +41,15 @@ export function createEnvOverridesController(deps = {}) {
   }
 
   function readEnvOverrideCatalog() {
-    return normalizeEnvOverrideCatalog(getAppSettingsSnapshot().envOverrideCatalog);
+    const reservedKeys = new Set(
+      (Array.isArray(getAppSettingsSnapshot().envOverrideReservedKeys)
+        ? getAppSettingsSnapshot().envOverrideReservedKeys
+        : [])
+        .map((item) => String(item || "").trim().toUpperCase())
+        .filter(Boolean),
+    );
+    return normalizeEnvOverrideCatalog(getAppSettingsSnapshot().envOverrideCatalog)
+      .filter((item) => !reservedKeys.has(item.key));
   }
 
   function findEnvOverrideCatalogItem(key, catalog = readEnvOverrideCatalog()) {

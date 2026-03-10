@@ -1,6 +1,7 @@
 import {
   BACKGROUND_TASKS_RESTART_KEYS_DEFAULT,
   BACKGROUND_TASKS_RESTART_KEY_LABELS,
+  GATEWAY_TRANSPORT_HINT_TEXT,
   ROUTE_STRATEGY_BALANCED,
   SERVICE_LISTEN_MODE_ALL_INTERFACES,
   UPSTREAM_PROXY_HINT_TEXT,
@@ -22,6 +23,7 @@ export function createRuntimeSettingsController(deps = {}) {
     normalizeRouteStrategy,
     normalizeCpaNoCookieHeaderMode,
     normalizeUpstreamProxyUrl,
+    normalizeGatewayTransportSettings,
     normalizeBackgroundTasksSettings,
   } = deps;
 
@@ -187,6 +189,66 @@ export function createRuntimeSettingsController(deps = {}) {
     setUpstreamProxyHint(UPSTREAM_PROXY_HINT_TEXT);
   }
 
+  function readGatewayTransportSetting() {
+    return normalizeGatewayTransportSettings({
+      sseKeepaliveIntervalMs: getAppSettingsSnapshot().sseKeepaliveIntervalMs,
+      upstreamStreamTimeoutMs: getAppSettingsSnapshot().upstreamStreamTimeoutMs,
+    });
+  }
+
+  function saveGatewayTransportSetting(settings) {
+    patchAppSettingsSnapshot(normalizeGatewayTransportSettings(settings));
+  }
+
+  function setGatewayTransportForm(settings) {
+    const normalized = normalizeGatewayTransportSettings(settings);
+    if (dom.gatewayTransportSseKeepaliveIntervalMs) {
+      dom.gatewayTransportSseKeepaliveIntervalMs.value = String(normalized.sseKeepaliveIntervalMs);
+    }
+    if (dom.gatewayTransportUpstreamStreamTimeoutMs) {
+      dom.gatewayTransportUpstreamStreamTimeoutMs.value = String(normalized.upstreamStreamTimeoutMs);
+    }
+  }
+
+  function readGatewayTransportForm() {
+    const keepaliveRaw = dom.gatewayTransportSseKeepaliveIntervalMs
+      ? String(dom.gatewayTransportSseKeepaliveIntervalMs.value || "").trim()
+      : "";
+    const keepalive = Number(keepaliveRaw);
+    if (!Number.isFinite(keepalive) || keepalive <= 0 || Math.floor(keepalive) !== keepalive) {
+      return { ok: false, error: "SSE 保活间隔需填写正整数" };
+    }
+
+    const timeoutRaw = dom.gatewayTransportUpstreamStreamTimeoutMs
+      ? String(dom.gatewayTransportUpstreamStreamTimeoutMs.value || "").trim()
+      : "";
+    const timeout = Number(timeoutRaw);
+    if (!Number.isFinite(timeout) || timeout < 0 || Math.floor(timeout) !== timeout) {
+      return { ok: false, error: "上游流式超时需填写非负整数" };
+    }
+
+    return {
+      ok: true,
+      settings: normalizeGatewayTransportSettings({
+        sseKeepaliveIntervalMs: keepalive,
+        upstreamStreamTimeoutMs: timeout,
+      }),
+    };
+  }
+
+  function setGatewayTransportHint(message) {
+    if (!dom.gatewayTransportHint) {
+      return;
+    }
+    dom.gatewayTransportHint.textContent = String(message || "").trim() || GATEWAY_TRANSPORT_HINT_TEXT;
+  }
+
+  function initGatewayTransportSetting() {
+    const settings = readGatewayTransportSetting();
+    setGatewayTransportForm(settings);
+    setGatewayTransportHint(GATEWAY_TRANSPORT_HINT_TEXT);
+  }
+
   function readBackgroundTasksSetting() {
     return normalizeBackgroundTasksSettings(getAppSettingsSnapshot().backgroundTasks);
   }
@@ -349,6 +411,12 @@ export function createRuntimeSettingsController(deps = {}) {
     setUpstreamProxyInput,
     setUpstreamProxyHint,
     initUpstreamProxySetting,
+    readGatewayTransportSetting,
+    saveGatewayTransportSetting,
+    setGatewayTransportForm,
+    readGatewayTransportForm,
+    setGatewayTransportHint,
+    initGatewayTransportSetting,
     readBackgroundTasksSetting,
     saveBackgroundTasksSetting,
     setBackgroundTasksForm,
@@ -357,6 +425,7 @@ export function createRuntimeSettingsController(deps = {}) {
     initBackgroundTasksSetting,
     persistServiceAddrInput,
     upstreamProxyHintText: UPSTREAM_PROXY_HINT_TEXT,
+    gatewayTransportHintText: GATEWAY_TRANSPORT_HINT_TEXT,
     backgroundTasksRestartKeysDefault: BACKGROUND_TASKS_RESTART_KEYS_DEFAULT,
   };
 }

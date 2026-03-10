@@ -16,6 +16,8 @@ export {
   serviceGatewayManualAccountSet,
   serviceGatewayRouteStrategyGet,
   serviceGatewayRouteStrategySet,
+  serviceGatewayTransportGet,
+  serviceGatewayTransportSet,
   serviceGatewayUpstreamProxyGet,
   serviceGatewayUpstreamProxySet,
   serviceInitialize,

@@ -157,6 +157,11 @@ pub(crate) fn upstream_stream_timeout() -> Option<Duration> {
     }
 }
 
+pub(crate) fn current_upstream_stream_timeout_ms() -> u64 {
+    ensure_runtime_config_loaded();
+    UPSTREAM_STREAM_TIMEOUT_MS.load(Ordering::Relaxed)
+}
+
 pub(crate) fn account_max_inflight_limit() -> usize {
     ensure_runtime_config_loaded();
     ACCOUNT_MAX_INFLIGHT.load(Ordering::Relaxed)
@@ -218,6 +223,13 @@ pub(super) fn set_upstream_proxy_url(proxy_url: Option<&str>) -> Result<Option<S
     drop(cached_proxy_url);
     refresh_upstream_clients_from_runtime_config();
     Ok(normalized)
+}
+
+pub(crate) fn set_upstream_stream_timeout_ms(timeout_ms: u64) -> u64 {
+    ensure_runtime_config_loaded();
+    UPSTREAM_STREAM_TIMEOUT_MS.store(timeout_ms, Ordering::Relaxed);
+    std::env::set_var(ENV_UPSTREAM_STREAM_TIMEOUT_MS, timeout_ms.to_string());
+    timeout_ms
 }
 
 pub(super) fn token_exchange_client_id() -> String {

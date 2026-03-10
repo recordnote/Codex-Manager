@@ -19,6 +19,7 @@ export const UI_LOW_TRANSPARENCY_BODY_CLASS = "cm-low-transparency";
 export const UI_LOW_TRANSPARENCY_TOGGLE_ID = "lowTransparencyMode";
 export const UI_LOW_TRANSPARENCY_CARD_ID = "settingsLowTransparencyCard";
 export const UPSTREAM_PROXY_HINT_TEXT = "支持 http/https/socks5，留空直连，socks 会自动按 socks5h 处理。";
+export const GATEWAY_TRANSPORT_HINT_TEXT = "SSE 保活建议 10000-30000 毫秒；上游流式超时填 0 表示不设上限。";
 
 export const DEFAULT_BACKGROUND_TASKS_SETTINGS = {
   usagePollingEnabled: true,
@@ -32,6 +33,11 @@ export const DEFAULT_BACKGROUND_TASKS_SETTINGS = {
   httpWorkerMin: 8,
   httpStreamWorkerFactor: 1,
   httpStreamWorkerMin: 2,
+};
+
+export const DEFAULT_GATEWAY_TRANSPORT_SETTINGS = {
+  sseKeepaliveIntervalMs: 15_000,
+  upstreamStreamTimeoutMs: 1_800_000,
 };
 
 export const BACKGROUND_TASKS_RESTART_KEYS_DEFAULT = [

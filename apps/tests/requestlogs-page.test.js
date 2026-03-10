@@ -12,6 +12,10 @@ test("request logs page wiring present", () => {
   const domJs = fs.readFileSync(path.join(appsRoot, "src", "ui", "dom.js"), "utf8");
   const mainJs = fs.readFileSync(path.join(appsRoot, "src", "main.js"), "utf8");
   const apiJs = fs.readFileSync(path.join(appsRoot, "src", "api.js"), "utf8");
+  const serviceClientJs = fs.readFileSync(
+    path.join(appsRoot, "src", "api", "service-client.js"),
+    "utf8",
+  );
 
   assert(indexHtml.includes('id="navRequestLogs"'), "index.html missing navRequestLogs button");
   assert(indexHtml.includes('id="pageRequestLogs"'), "index.html missing pageRequestLogs section");
@@ -27,6 +31,10 @@ test("request logs page wiring present", () => {
   assert(domJs.includes("clearRequestLogs"), "dom.js missing clearRequestLogs mapping");
   assert(mainJs.includes("refreshRequestLogs"), "main.js missing refreshRequestLogs integration");
   assert(mainJs.includes("refreshRequestLogTodaySummary"), "main.js missing today summary refresh integration");
-  assert(apiJs.includes("service_requestlog_today_summary"), "api.js missing requestlog today summary rpc");
+  assert(apiJs.includes("serviceRequestLogTodaySummary"), "api.js missing today summary export");
+  assert(
+    serviceClientJs.includes("service_requestlog_today_summary"),
+    "service-client.js missing requestlog today summary rpc",
+  );
   assert(mainJs.includes("handleClearRequestLogs"), "main.js missing clear request logs handler");
 });

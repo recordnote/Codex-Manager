@@ -6,7 +6,8 @@ use super::{
     parse_bool_with_default, persisted_env_overrides_only, reload_runtime_after_env_override_apply,
     set_service_bind_mode, BackgroundTasksInput, APP_SETTING_GATEWAY_BACKGROUND_TASKS_KEY,
     APP_SETTING_GATEWAY_CPA_NO_COOKIE_HEADER_MODE_KEY, APP_SETTING_GATEWAY_ROUTE_STRATEGY_KEY,
-    APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY, SERVICE_BIND_MODE_SETTING_KEY,
+    APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY, APP_SETTING_GATEWAY_UPSTREAM_PROXY_URL_KEY,
+    APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY, SERVICE_BIND_MODE_SETTING_KEY,
 };
 
 pub fn sync_runtime_settings_from_storage() {
@@ -34,6 +35,22 @@ pub fn sync_runtime_settings_from_storage() {
         let normalized = normalize_optional_text(Some(proxy_url));
         if let Err(err) = gateway::set_upstream_proxy_url(normalized.as_deref()) {
             log::warn!("sync persisted upstream proxy failed: {err}");
+        }
+    }
+    if let Some(raw) = settings.get(APP_SETTING_GATEWAY_UPSTREAM_STREAM_TIMEOUT_MS_KEY) {
+        if let Ok(timeout_ms) = raw.trim().parse::<u64>() {
+            gateway::set_upstream_stream_timeout_ms(timeout_ms);
+        } else {
+            log::warn!("parse persisted upstream stream timeout failed: {raw}");
+        }
+    }
+    if let Some(raw) = settings.get(APP_SETTING_GATEWAY_SSE_KEEPALIVE_INTERVAL_MS_KEY) {
+        if let Ok(interval_ms) = raw.trim().parse::<u64>() {
+            if let Err(err) = gateway::set_sse_keepalive_interval_ms(interval_ms) {
+                log::warn!("sync persisted sse keepalive interval failed: {err}");
+            }
+        } else {
+            log::warn!("parse persisted sse keepalive interval failed: {raw}");
         }
     }
     if let Some(raw) = settings.get(APP_SETTING_GATEWAY_BACKGROUND_TASKS_KEY) {

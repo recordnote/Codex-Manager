@@ -174,6 +174,22 @@ pub(crate) fn set_upstream_proxy_url(proxy_url: Option<&str>) -> Result<Option<S
     Ok(applied)
 }
 
+pub(crate) fn current_upstream_stream_timeout_ms() -> u64 {
+    runtime_config::current_upstream_stream_timeout_ms()
+}
+
+pub(crate) fn set_upstream_stream_timeout_ms(timeout_ms: u64) -> u64 {
+    runtime_config::set_upstream_stream_timeout_ms(timeout_ms)
+}
+
+pub(crate) fn current_sse_keepalive_interval_ms() -> u64 {
+    http_bridge::current_sse_keepalive_interval_ms()
+}
+
+pub(crate) fn set_sse_keepalive_interval_ms(interval_ms: u64) -> Result<u64, String> {
+    http_bridge::set_sse_keepalive_interval_ms(interval_ms)
+}
+
 pub(crate) fn manual_preferred_account() -> Option<String> {
     route_hint::get_manual_preferred_account()
 }

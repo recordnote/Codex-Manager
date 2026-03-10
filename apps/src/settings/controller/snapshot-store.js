@@ -1,5 +1,6 @@
 import {
   DEFAULT_BACKGROUND_TASKS_SETTINGS,
+  DEFAULT_GATEWAY_TRANSPORT_SETTINGS,
   defaultAppSettingsGet,
   defaultAppSettingsSet,
   normalizeBooleanSetting,
@@ -83,6 +84,22 @@ export function createSettingsSnapshotStore(deps = {}) {
     };
   }
 
+  function normalizeGatewayTransportSettings(input) {
+    const source = input && typeof input === "object" ? input : {};
+    return {
+      sseKeepaliveIntervalMs: normalizePositiveInteger(
+        source.sseKeepaliveIntervalMs,
+        DEFAULT_GATEWAY_TRANSPORT_SETTINGS.sseKeepaliveIntervalMs,
+        1,
+      ),
+      upstreamStreamTimeoutMs: normalizePositiveInteger(
+        source.upstreamStreamTimeoutMs,
+        DEFAULT_GATEWAY_TRANSPORT_SETTINGS.upstreamStreamTimeoutMs,
+        0,
+      ),
+    };
+  }
+
   function buildDefaultAppSettingsSnapshot() {
     return {
       updateAutoCheck: true,
@@ -96,6 +113,7 @@ export function createSettingsSnapshotStore(deps = {}) {
       routeStrategy: normalizeRouteStrategy(null),
       cpaNoCookieHeaderModeEnabled: false,
       upstreamProxyUrl: "",
+      ...normalizeGatewayTransportSettings(DEFAULT_GATEWAY_TRANSPORT_SETTINGS),
       backgroundTasks: normalizeBackgroundTasksSettings(DEFAULT_BACKGROUND_TASKS_SETTINGS),
       envOverrides: {},
       envOverrideCatalog: [],
@@ -137,6 +155,10 @@ export function createSettingsSnapshotStore(deps = {}) {
         payload.cpaNoCookieHeaderModeEnabled,
       ),
       upstreamProxyUrl: normalizeUpstreamProxyUrl(payload.upstreamProxyUrl),
+      ...normalizeGatewayTransportSettings({
+        sseKeepaliveIntervalMs: payload.sseKeepaliveIntervalMs,
+        upstreamStreamTimeoutMs: payload.upstreamStreamTimeoutMs,
+      }),
       backgroundTasks: normalizeBackgroundTasksSettings(payload.backgroundTasks),
       envOverrides: normalizeEnvOverrides(payload.envOverrides),
       envOverrideCatalog: normalizeEnvOverrideCatalog(payload.envOverrideCatalog),
@@ -200,6 +222,7 @@ export function createSettingsSnapshotStore(deps = {}) {
 
   return {
     normalizeBackgroundTasksSettings,
+    normalizeGatewayTransportSettings,
     getAppSettingsSnapshot,
     patchAppSettingsSnapshot,
     loadAppSettings,

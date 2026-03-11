@@ -86,9 +86,56 @@ function saveAppSettingsPatch(patch = {}) {
 }
 
 const UPDATE_CHECK_DELAY_MS = 1200;
+const WEB_AUTH_TAB_SESSION_KEY = "codexmanager_web_auth_tab";
 
 function isTauriRuntime() {
   return Boolean(window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke);
+}
+
+function hasBrowserWebAuthTabSession() {
+  try {
+    return window.sessionStorage.getItem(WEB_AUTH_TAB_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function clearBrowserWebAuthTabSession() {
+  try {
+    window.sessionStorage.removeItem(WEB_AUTH_TAB_SESSION_KEY);
+  } catch {
+  }
+}
+
+async function enforceBrowserWebPasswordGate() {
+  if (isTauriRuntime()) {
+    return true;
+  }
+  try {
+    const response = await fetch("/__auth_status", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) {
+      return true;
+    }
+    const payload = await response.json();
+    if (!payload || payload.passwordConfigured !== true) {
+      clearBrowserWebAuthTabSession();
+      return true;
+    }
+    if (hasBrowserWebAuthTabSession()) {
+      return true;
+    }
+    window.location.replace("/__login?force=1");
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 function normalizeErrorMessage(err) {
@@ -671,7 +718,13 @@ const bootstrap = createBootstrapRunner({
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-  void bootstrap();
+  void (async () => {
+    const allowed = await enforceBrowserWebPasswordGate();
+    if (!allowed) {
+      return;
+    }
+    await bootstrap();
+  })();
 });
 
 

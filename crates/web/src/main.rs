@@ -228,8 +228,9 @@ async fn async_main() {
         auth::web_auth_middleware,
     ));
     let app = Router::new()
+        .route("/__auth_status", get(auth::auth_status))
         .route("/__login", get(auth::login_page).post(auth::login_submit))
-        .route("/__logout", get(auth::logout))
+        .route("/__logout", get(auth::logout).post(auth::logout))
         .merge(protected_app)
         .with_state(state);
 

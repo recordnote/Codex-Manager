@@ -1,10 +1,18 @@
 use super::*;
 
+use axum::extract::Query;
 use serde::Deserialize;
+
+const WEB_AUTH_TAB_SESSION_STORAGE_KEY: &str = "codexmanager_web_auth_tab";
 
 #[derive(Debug, Deserialize)]
 pub(super) struct LoginForm {
     password: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub(super) struct LoginQuery {
+    force: Option<String>,
 }
 
 fn current_web_access_password_hash() -> Option<String> {
@@ -54,6 +62,28 @@ fn clear_cookie_header_value() -> Option<HeaderValue> {
         "{WEB_AUTH_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
     ))
     .ok()
+}
+
+fn append_no_store_headers(response: &mut Response) {
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("no-store, no-cache, must-revalidate"),
+    );
+    response
+        .headers_mut()
+        .insert(header::PRAGMA, HeaderValue::from_static("no-cache"));
+    response
+        .headers_mut()
+        .insert(header::EXPIRES, HeaderValue::from_static("0"));
+}
+
+fn login_force_requested(query: &LoginQuery) -> bool {
+    query
+        .force
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
 }
 
 fn request_is_authenticated(headers: &HeaderMap, state: &AppState) -> bool {
@@ -191,6 +221,50 @@ fn builtin_login_html(error: Option<&str>) -> String {
     )
 }
 
+fn login_success_html() -> String {
+    format!(
+        r#"<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>CodexManager Web 登录</title>
+  </head>
+  <body>
+    <script>
+      try {{
+        window.sessionStorage.setItem("{WEB_AUTH_TAB_SESSION_STORAGE_KEY}", "1");
+      }} catch (_err) {{}}
+      window.location.replace("/");
+    </script>
+  </body>
+</html>
+"#
+    )
+}
+
+fn logout_success_html() -> String {
+    format!(
+        r#"<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>CodexManager Web 已退出</title>
+  </head>
+  <body>
+    <script>
+      try {{
+        window.sessionStorage.removeItem("{WEB_AUTH_TAB_SESSION_STORAGE_KEY}");
+      }} catch (_err) {{}}
+      window.location.replace("/__login?force=1");
+    </script>
+  </body>
+</html>
+"#
+    )
+}
+
 pub(super) async fn web_auth_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
@@ -215,14 +289,18 @@ pub(super) async fn web_auth_middleware(
 
 pub(super) async fn login_page(
     State(state): State<Arc<AppState>>,
+    Query(query): Query<LoginQuery>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    if current_web_access_password_hash().is_none()
-        || request_is_authenticated(&headers, state.as_ref())
-    {
+    if current_web_access_password_hash().is_none() {
         return Redirect::to("/").into_response();
     }
-    Html(builtin_login_html(None)).into_response()
+    if request_is_authenticated(&headers, state.as_ref()) && !login_force_requested(&query) {
+        return Redirect::to("/").into_response();
+    }
+    let mut response = Html(builtin_login_html(None)).into_response();
+    append_no_store_headers(&mut response);
+    response
 }
 
 pub(super) async fn login_submit(
@@ -233,32 +311,75 @@ pub(super) async fn login_submit(
         return Redirect::to("/").into_response();
     };
     if !codexmanager_service::verify_web_access_password(&form.password) {
-        return (
+        let mut response = (
             StatusCode::UNAUTHORIZED,
             Html(builtin_login_html(Some("密码错误，请重试。"))),
         )
-            .into_response();
+        .into_response();
+        append_no_store_headers(&mut response);
+        return response;
     }
     let token = build_web_auth_cookie_value(
         &password_hash,
         &state.rpc_token,
         &state.web_auth_session_key,
     );
-    let mut response = Redirect::to("/").into_response();
+    let mut response = Html(login_success_html()).into_response();
     if let Some(header_value) = set_cookie_header_value(&token) {
         response
             .headers_mut()
             .append(header::SET_COOKIE, header_value);
     }
+    append_no_store_headers(&mut response);
     response
 }
 
 pub(super) async fn logout() -> impl IntoResponse {
-    let mut response = Redirect::to("/__login").into_response();
+    let mut response = Html(logout_success_html()).into_response();
     if let Some(header_value) = clear_cookie_header_value() {
         response
             .headers_mut()
             .append(header::SET_COOKIE, header_value);
     }
+    append_no_store_headers(&mut response);
     response
+}
+
+pub(super) async fn auth_status() -> impl IntoResponse {
+    let mut response = axum::Json(serde_json::json!({
+        "passwordConfigured": current_web_access_password_hash().is_some(),
+    }))
+    .into_response();
+    append_no_store_headers(&mut response);
+    response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn login_force_requested_accepts_truthy_flags() {
+        for value in ["1", "true", "TRUE", "yes", "on"] {
+            let query = LoginQuery {
+                force: Some(value.to_string()),
+            };
+            assert!(login_force_requested(&query), "value={value}");
+        }
+        for value in ["", "0", "false", "no", "off"] {
+            let query = LoginQuery {
+                force: Some(value.to_string()),
+            };
+            assert!(!login_force_requested(&query), "value={value}");
+        }
+        assert!(!login_force_requested(&LoginQuery::default()));
+    }
+
+    #[test]
+    fn login_success_html_marks_current_tab_session() {
+        let html = login_success_html();
+        assert!(html.contains("sessionStorage.setItem"));
+        assert!(html.contains(WEB_AUTH_TAB_SESSION_STORAGE_KEY));
+        assert!(html.contains("location.replace(\"/\")"));
+    }
 }

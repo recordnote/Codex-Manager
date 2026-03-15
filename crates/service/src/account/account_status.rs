@@ -13,3 +13,21 @@ pub(crate) fn set_account_status(storage: &Storage, account_id: &str, status: &s
         });
     }
 }
+
+pub(crate) fn is_refresh_token_auth_error(err: &str) -> bool {
+    let normalized = err.trim().to_ascii_lowercase();
+    normalized.contains("refresh token failed with status 401")
+        || normalized.contains("refresh token failed with status 403")
+}
+
+pub(crate) fn mark_account_inactive_for_refresh_token_error(
+    storage: &Storage,
+    account_id: &str,
+    err: &str,
+) -> bool {
+    if !is_refresh_token_auth_error(err) {
+        return false;
+    }
+    set_account_status(storage, account_id, "inactive", "refresh_token_invalid");
+    true
+}

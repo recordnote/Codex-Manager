@@ -359,7 +359,7 @@ fn responses_dynamic_tools_are_mapped_to_tools_for_codex_backend() {
 }
 
 #[test]
-fn responses_retains_only_codex_supported_fields() {
+fn responses_retains_service_tier_for_codex_supported_fields() {
     let body = json!({
         "model": "gpt-5.3-codex",
         "instructions": "stay",
@@ -374,7 +374,7 @@ fn responses_retains_only_codex_supported_fields() {
         "prompt_cache_key": "pc_1",
         "encrypted_content": "gAAA_test_payload",
         "text": { "format": { "type": "text" } },
-        "service_tier": "default",
+        "service_tier": "priority",
         "temperature": 0.7,
         "user": "cherry-studio"
     });
@@ -399,7 +399,12 @@ fn responses_retains_only_codex_supported_fields() {
     assert!(value.get("prompt_cache_key").is_some());
     assert!(value.get("encrypted_content").is_some());
     assert!(value.get("text").is_some());
-    assert!(value.get("service_tier").is_none());
+    assert_eq!(
+        value
+            .get("service_tier")
+            .and_then(serde_json::Value::as_str),
+        Some("priority")
+    );
     assert!(value.get("temperature").is_none());
     assert!(value.get("user").is_none());
 }

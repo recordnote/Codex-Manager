@@ -227,6 +227,7 @@ fn is_supported_codex_responses_key(key: &str) -> bool {
             | "tool_choice"
             | "parallel_tool_calls"
             | "reasoning"
+            | "service_tier"
             | "store"
             | "stream"
             | "include"

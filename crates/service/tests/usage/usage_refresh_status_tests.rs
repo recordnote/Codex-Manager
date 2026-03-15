@@ -2,6 +2,7 @@ use super::{
     mark_usage_unreachable_if_needed, record_usage_refresh_failure, should_retry_with_refresh,
 };
 use crate::account_availability::Availability;
+use crate::account_status::mark_account_inactive_for_refresh_token_error;
 use crate::usage_snapshot_store::apply_status_from_snapshot;
 use codexmanager_core::storage::{now_ts, Account, Storage, UsageSnapshotRecord};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -151,6 +152,36 @@ fn mark_usage_unreachable_only_for_usage_status_error() {
         .expect("list")
         .into_iter()
         .find(|acc| acc.id == "acc-2")
+        .expect("exists");
+    assert_eq!(inactive.status, "inactive");
+}
+
+#[test]
+fn refresh_token_auth_error_marks_account_inactive() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let account = Account {
+        id: "acc-refresh-auth".to_string(),
+        label: "main".to_string(),
+        issuer: "issuer".to_string(),
+        chatgpt_account_id: None,
+        workspace_id: None,
+        group_name: None,
+        sort: 0,
+        status: "active".to_string(),
+        created_at: now_ts(),
+        updated_at: now_ts(),
+    };
+    storage.insert_account(&account).expect("insert");
+
+    assert!(mark_account_inactive_for_refresh_token_error(
+        &storage,
+        "acc-refresh-auth",
+        "refresh token failed with status 401 Unauthorized"
+    ));
+    let inactive = storage
+        .find_account_by_id("acc-refresh-auth")
+        .expect("find")
         .expect("exists");
     assert_eq!(inactive.status, "inactive");
 }

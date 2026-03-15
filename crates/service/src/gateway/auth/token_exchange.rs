@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use codexmanager_core::storage::{now_ts, Account, Storage, Token};
 
+use crate::account_status::mark_account_inactive_for_refresh_token_error;
 use crate::auth_tokens;
 use crate::usage_http::refresh_access_token;
 
@@ -152,6 +153,13 @@ pub(super) fn resolve_openai_bearer_token(
                         }
                     }
                     Err(refresh_err) => {
+                        if mark_account_inactive_for_refresh_token_error(
+                            storage,
+                            &account.id,
+                            &refresh_err,
+                        ) {
+                            return Err(refresh_err);
+                        }
                         log::warn!(
                             "refresh token before api_key_access_token exchange failed: {}",
                             refresh_err

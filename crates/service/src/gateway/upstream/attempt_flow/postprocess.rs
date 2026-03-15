@@ -3,6 +3,8 @@ use codexmanager_core::storage::{Account, Storage, Token};
 use std::time::Instant;
 use tiny_http::Request;
 
+use crate::account_status::mark_account_inactive_for_refresh_token_error;
+
 use super::super::support::outcome::{decide_upstream_outcome, UpstreamOutcomeDecision};
 use super::super::support::retry::{retry_with_alternate_path, AltPathRetryResult};
 use super::fallback_branch::{handle_openai_fallback_branch, FallbackBranchResult};
@@ -130,12 +132,18 @@ where
                 }
                 Ok(None) => {}
                 Err(err) => {
+                    let refresh_token_invalid =
+                        mark_account_inactive_for_refresh_token_error(storage, &account.id, &err);
                     log::warn!(
                         "event=gateway_upstream_unauthorized_refresh_failed path={} account_id={} err={}",
                         path,
                         account.id,
                         err
                     );
+                    if refresh_token_invalid && has_more_candidates {
+                        log_gateway_result(Some(url), 401, Some("refresh token invalid failover"));
+                        return PostRetryFlowDecision::Failover;
+                    }
                 }
             }
         }

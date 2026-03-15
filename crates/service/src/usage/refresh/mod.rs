@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::account_status::mark_account_inactive_for_refresh_token_error;
 use crate::storage_helpers::open_storage;
 use crate::usage_account_meta::{
     build_workspace_map_from_accounts, clean_header_value, derive_account_meta, patch_account_meta,
@@ -224,6 +225,11 @@ pub(crate) fn refresh_tokens_before_expiry_for_all_accounts() -> Result<(), Stri
                 refreshed = refreshed.saturating_add(1);
             }
             Err(err) => {
+                let _ = mark_account_inactive_for_refresh_token_error(
+                    &storage,
+                    &token.account_id,
+                    &err,
+                );
                 log::warn!(
                     "token refresh polling failed: account_id={} err={}",
                     token.account_id,
@@ -338,7 +344,12 @@ fn refresh_usage_for_token(
         Err(err) if should_retry_with_refresh(&err) => {
             // 中文注释：token 刷新与持久化独立封装，避免轮询流程继续膨胀；
             // 不下沉会让后续 async 迁移时刷新链路与业务编排强耦合，回归范围扩大。
-            let _ = refresh_and_persist_access_token(storage, &mut current, &issuer, &client_id)?;
+            if let Err(refresh_err) =
+                refresh_and_persist_access_token(storage, &mut current, &issuer, &client_id)
+            {
+                mark_usage_unreachable_if_needed(storage, &current.account_id, &refresh_err);
+                return Err(refresh_err);
+            }
             let bearer = current.access_token.clone();
             match fetch_usage_snapshot(&base_url, &bearer, resolved_workspace_id.as_deref()) {
                 Ok(value) => {

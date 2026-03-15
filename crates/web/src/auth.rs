@@ -213,7 +213,7 @@ fn builtin_login_html(error: Option<&str>) -> String {
       <label for="password">访问密码</label>
       <input id="password" name="password" type="password" autocomplete="current-password" autofocus />
       <button type="submit">进入控制台</button>
-      <div class="foot">密码可在桌面端右上角安全入口或设置页中修改。</div>
+      <div class="foot">密码可在桌面端或 Web 端右上角的“密码”入口中修改。</div>
     </form>
   </body>
 </html>

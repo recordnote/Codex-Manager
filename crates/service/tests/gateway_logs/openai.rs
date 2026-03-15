@@ -447,19 +447,29 @@ fn gateway_openai_non_stream_without_usage_keeps_tokens_null() {
 }
 
 #[test]
-fn gateway_openai_compact_route_collapses_sse_and_preserves_priority_tier() {
+fn gateway_openai_compact_route_aligns_with_codex_remote_compact_request() {
     let _lock = lock_env();
     let dir = new_test_dir("codexmanager-gateway-openai-compact-route");
     let db_path: PathBuf = dir.join("codexmanager.db");
 
     let _db_guard = EnvGuard::set("CODEXMANAGER_DB_PATH", db_path.to_string_lossy().as_ref());
 
-    let upstream_sse = concat!(
-        "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_compact_1\",\"model\":\"gpt-5.3-codex\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"compact summary\"}]}],\"usage\":{\"input_tokens\":8,\"output_tokens\":3,\"total_tokens\":11}}}\n\n",
-        "data: [DONE]\n\n"
-    );
-    let (upstream_addr, upstream_rx, upstream_join) =
-        start_mock_upstream_once_with_content_type(upstream_sse, "text/event-stream");
+    let upstream_response = serde_json::json!({
+        "output": [
+            {
+                "type": "message",
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "compact me" }]
+            },
+            {
+                "type": "compaction",
+                "encrypted_content": "REMOTE_COMPACTED_SUMMARY"
+            }
+        ]
+    });
+    let upstream_response =
+        serde_json::to_string(&upstream_response).expect("serialize compact response");
+    let (upstream_addr, upstream_rx, upstream_join) = start_mock_upstream_once(&upstream_response);
     let upstream_base = format!("http://{upstream_addr}/backend-api/codex");
     let _upstream_guard = EnvGuard::set("CODEXMANAGER_UPSTREAM_BASE_URL", &upstream_base);
 
@@ -527,6 +537,8 @@ fn gateway_openai_compact_route_collapses_sse_and_preserves_priority_tier() {
         &[
             ("Content-Type", "application/json"),
             ("Authorization", &format!("Bearer {platform_key}")),
+            ("session_id", "sess_compact_cli"),
+            ("x-openai-subagent", "compact"),
         ],
     );
     server.join();
@@ -534,26 +546,72 @@ fn gateway_openai_compact_route_collapses_sse_and_preserves_priority_tier() {
 
     let value: serde_json::Value = serde_json::from_str(&gateway_body)
         .unwrap_or_else(|err| panic!("parse response failed: {err}; body={gateway_body}"));
-    assert_eq!(value["id"], "resp_compact_1");
-    assert_eq!(value["output"][0]["content"][0]["text"], "compact summary");
+    assert_eq!(value["output"][0]["content"][0]["text"], "compact me");
+    assert_eq!(
+        value["output"][1]["encrypted_content"],
+        "REMOTE_COMPACTED_SUMMARY"
+    );
 
     let captured = upstream_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("receive upstream request");
     upstream_join.join().expect("join upstream");
     assert_eq!(captured.path, "/backend-api/codex/responses/compact");
+    assert_eq!(
+        captured.headers.get("accept").map(String::as_str),
+        Some("application/json")
+    );
+    assert_eq!(
+        captured.headers.get("session_id").map(String::as_str),
+        Some("sess_compact_cli")
+    );
+    assert_eq!(
+        captured
+            .headers
+            .get("x-openai-subagent")
+            .map(String::as_str),
+        Some("compact")
+    );
+    assert!(
+        captured.headers.contains_key("user-agent"),
+        "compact should carry codex user-agent defaults"
+    );
+    assert_eq!(
+        captured.headers.get("originator").map(String::as_str),
+        Some("codex_cli_rs")
+    );
+    assert!(
+        !captured.headers.contains_key("conversation_id"),
+        "compact should not forward conversation affinity"
+    );
+    assert!(
+        !captured.headers.contains_key("x-codex-turn-state"),
+        "compact should not forward turn-state affinity"
+    );
+    assert!(
+        !captured.headers.contains_key("openai-beta"),
+        "compact should not force responses streaming beta header"
+    );
 
     let upstream_body = String::from_utf8(captured.body).expect("upstream body utf8");
     assert!(
-        upstream_body.contains("\"stream\":true"),
+        !upstream_body.contains("\"stream\":"),
         "unexpected upstream body: {upstream_body}"
     );
     assert!(
-        upstream_body.contains("\"store\":false"),
+        !upstream_body.contains("\"store\":"),
         "unexpected upstream body: {upstream_body}"
     );
     assert!(
-        upstream_body.contains("\"service_tier\":\"priority\""),
+        !upstream_body.contains("\"service_tier\":"),
+        "unexpected upstream body: {upstream_body}"
+    );
+    assert!(
+        upstream_body.contains("\"instructions\":\"\""),
+        "unexpected upstream body: {upstream_body}"
+    );
+    assert!(
+        upstream_body.contains("\"reasoning\":{\"effort\":\"high\"}"),
         "unexpected upstream body: {upstream_body}"
     );
 }
@@ -802,6 +860,8 @@ fn gateway_chatgpt_primary_preserves_turn_state_headers_without_openai_fallback(
             ("Authorization", &format!("Bearer {platform_key}")),
             ("x-codex-turn-state", "gAAA_dummy_turn_state_blob"),
             ("Conversation_id", "conv_dummy"),
+            ("x-client-request-id", "req_dummy"),
+            ("x-openai-subagent", "review"),
         ],
     );
     server.join();
@@ -819,6 +879,14 @@ fn gateway_chatgpt_primary_preserves_turn_state_headers_without_openai_fallback(
     assert!(
         first.headers.contains_key("conversation_id"),
         "primary request should preserve conversation_id without fallback rewriting"
+    );
+    assert_eq!(
+        first.headers.get("x-client-request-id").map(String::as_str),
+        Some("req_dummy")
+    );
+    assert_eq!(
+        first.headers.get("x-openai-subagent").map(String::as_str),
+        Some("review")
     );
     assert!(
         first.headers.contains_key("session_id"),

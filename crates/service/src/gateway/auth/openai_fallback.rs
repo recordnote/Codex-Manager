@@ -67,6 +67,10 @@ fn should_compact_upstream_headers() -> bool {
     super::cpa_no_cookie_header_mode_enabled()
 }
 
+fn is_compact_request_path(path: &str) -> bool {
+    path == "/v1/responses/compact" || path.starts_with("/v1/responses/compact?")
+}
+
 pub(super) fn try_openai_fallback(
     client: &Client,
     storage: &Storage,
@@ -109,27 +113,43 @@ pub(super) fn try_openai_fallback(
         .as_deref()
         .or_else(|| account.workspace_id.as_deref());
     let include_account_id = !compact_headers_mode && !is_openai_api_target;
-    let header_input = super::upstream::header_profile::CodexUpstreamHeaderInput {
-        auth_token: bearer.as_str(),
-        account_id,
-        include_account_id,
-        include_openai_beta: !compact_headers_mode
-            && !is_openai_api_target
-            && request_path.starts_with("/v1/responses"),
-        upstream_cookie,
-        incoming_session_id: incoming_headers.session_id(),
-        fallback_session_id: None,
-        incoming_turn_state: incoming_headers.turn_state(),
-        include_turn_state: !compact_headers_mode && !is_openai_api_target,
-        incoming_conversation_id: incoming_headers.conversation_id(),
-        fallback_conversation_id: None,
-        include_conversation_id: !compact_headers_mode && !is_openai_api_target,
-        strip_session_affinity,
-        is_stream,
-        has_body: !body.is_empty(),
+    let mut upstream_headers = if is_compact_request_path(request_path) {
+        let header_input = super::upstream::header_profile::CodexCompactUpstreamHeaderInput {
+            auth_token: bearer.as_str(),
+            account_id,
+            include_account_id,
+            upstream_cookie,
+            incoming_session_id: incoming_headers.session_id(),
+            incoming_subagent: incoming_headers.subagent(),
+            fallback_session_id: None,
+            strip_session_affinity,
+            has_body: !body.is_empty(),
+        };
+        super::upstream::header_profile::build_codex_compact_upstream_headers(header_input)
+    } else {
+        let header_input = super::upstream::header_profile::CodexUpstreamHeaderInput {
+            auth_token: bearer.as_str(),
+            account_id,
+            include_account_id,
+            include_openai_beta: !compact_headers_mode
+                && !is_openai_api_target
+                && request_path.starts_with("/v1/responses"),
+            upstream_cookie,
+            incoming_session_id: incoming_headers.session_id(),
+            incoming_client_request_id: incoming_headers.client_request_id(),
+            incoming_subagent: incoming_headers.subagent(),
+            fallback_session_id: None,
+            incoming_turn_state: incoming_headers.turn_state(),
+            include_turn_state: !compact_headers_mode && !is_openai_api_target,
+            incoming_conversation_id: incoming_headers.conversation_id(),
+            fallback_conversation_id: None,
+            include_conversation_id: !compact_headers_mode && !is_openai_api_target,
+            strip_session_affinity,
+            is_stream,
+            has_body: !body.is_empty(),
+        };
+        super::upstream::header_profile::build_codex_upstream_headers(header_input)
     };
-    let mut upstream_headers =
-        super::upstream::header_profile::build_codex_upstream_headers(header_input);
     if should_force_connection_close(&url) {
         force_connection_close(&mut upstream_headers);
     }

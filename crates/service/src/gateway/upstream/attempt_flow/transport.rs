@@ -40,6 +40,10 @@ fn should_compact_upstream_headers() -> bool {
     super::super::super::cpa_no_cookie_header_mode_enabled()
 }
 
+fn is_compact_request_path(path: &str) -> bool {
+    path == "/v1/responses/compact" || path.starts_with("/v1/responses/compact?")
+}
+
 pub(in super::super) fn send_upstream_request(
     client: &reqwest::blocking::Client,
     method: &reqwest::Method,
@@ -102,25 +106,41 @@ pub(in super::super) fn send_upstream_request(
         .or_else(|| account.workspace_id.as_deref());
     let include_account_id =
         !compact_headers_mode && !super::super::super::is_openai_api_base(target_url);
-    let header_input = super::super::header_profile::CodexUpstreamHeaderInput {
-        auth_token,
-        account_id,
-        include_account_id,
-        include_openai_beta: !compact_headers_mode,
-        upstream_cookie,
-        incoming_session_id,
-        fallback_session_id: derived_session_id.as_deref(),
-        incoming_turn_state: incoming_headers.turn_state(),
-        include_turn_state: !compact_headers_mode,
-        incoming_conversation_id,
-        fallback_conversation_id: derived_conversation_id.as_deref(),
-        include_conversation_id: !compact_headers_mode,
-        strip_session_affinity,
-        is_stream,
-        has_body: !body.is_empty(),
+    let mut upstream_headers = if is_compact_request_path(request.url()) {
+        let header_input = super::super::header_profile::CodexCompactUpstreamHeaderInput {
+            auth_token,
+            account_id,
+            include_account_id,
+            upstream_cookie,
+            incoming_session_id,
+            incoming_subagent: incoming_headers.subagent(),
+            fallback_session_id: derived_session_id.as_deref(),
+            strip_session_affinity,
+            has_body: !body.is_empty(),
+        };
+        super::super::header_profile::build_codex_compact_upstream_headers(header_input)
+    } else {
+        let header_input = super::super::header_profile::CodexUpstreamHeaderInput {
+            auth_token,
+            account_id,
+            include_account_id,
+            include_openai_beta: !compact_headers_mode,
+            upstream_cookie,
+            incoming_session_id,
+            incoming_client_request_id: incoming_headers.client_request_id(),
+            incoming_subagent: incoming_headers.subagent(),
+            fallback_session_id: derived_session_id.as_deref(),
+            incoming_turn_state: incoming_headers.turn_state(),
+            include_turn_state: !compact_headers_mode,
+            incoming_conversation_id,
+            fallback_conversation_id: derived_conversation_id.as_deref(),
+            include_conversation_id: !compact_headers_mode,
+            strip_session_affinity,
+            is_stream,
+            has_body: !body.is_empty(),
+        };
+        super::super::header_profile::build_codex_upstream_headers(header_input)
     };
-    let mut upstream_headers =
-        super::super::header_profile::build_codex_upstream_headers(header_input);
     if should_force_connection_close(target_url) {
         // 中文注释：本地 loopback mock/代理更容易复用到脏 keep-alive 连接；
         // 对 localhost/127.0.0.1 强制 close，避免请求落到已失效连接。

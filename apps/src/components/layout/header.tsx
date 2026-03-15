@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { WebPasswordModal } from "../modals/web-password-modal";
 import { serviceClient } from "@/lib/api/service-client";
 import { appClient } from "@/lib/api/app-client";
+import { isTauriRuntime } from "@/lib/api/transport";
 import {
   formatServiceError,
   isExpectedInitializeResult,
@@ -23,6 +24,7 @@ const DEFAULT_SERVICE_ADDR = "localhost:48760";
 export function Header() {
   const { serviceStatus, setServiceStatus, setAppSettings } = useAppStore();
   const pathname = usePathname();
+  const isDesktop = isTauriRuntime();
   const [webPasswordModalOpen, setWebPasswordModalOpen] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [portInput, setPortInput] = useState("48760");
@@ -109,29 +111,31 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-lg border bg-card/30 px-3 py-1.5 shadow-sm">
-            <span className="text-xs font-medium text-muted-foreground">监听端口</span>
-            <Input
-              className="h-7 w-16 border-none bg-transparent p-0 text-xs font-mono focus-visible:ring-0"
-              placeholder="48760"
-              value={portInput}
-              onChange={(event) => {
-                const nextPort = event.target.value.replace(/[^\d]/g, "");
-                setPortInput(nextPort);
-                if (nextPort) {
-                  setServiceStatus({ addr: `localhost:${nextPort}` });
-                }
-              }}
-              onBlur={() => void handlePortBlur()}
-            />
-            <div className="mx-1 h-4 w-px bg-border" />
-            <Switch
-              checked={serviceStatus.connected}
-              disabled={isToggling}
-              onCheckedChange={handleToggleService}
-              className="scale-90"
-            />
-          </div>
+          {isDesktop ? (
+            <div className="flex items-center gap-2 rounded-lg border bg-card/30 px-3 py-1.5 shadow-sm">
+              <span className="text-xs font-medium text-muted-foreground">监听端口</span>
+              <Input
+                className="h-7 w-16 border-none bg-transparent p-0 text-xs font-mono focus-visible:ring-0"
+                placeholder="48760"
+                value={portInput}
+                onChange={(event) => {
+                  const nextPort = event.target.value.replace(/[^\d]/g, "");
+                  setPortInput(nextPort);
+                  if (nextPort) {
+                    setServiceStatus({ addr: `localhost:${nextPort}` });
+                  }
+                }}
+                onBlur={() => void handlePortBlur()}
+              />
+              <div className="mx-1 h-4 w-px bg-border" />
+              <Switch
+                checked={serviceStatus.connected}
+                disabled={isToggling}
+                onCheckedChange={handleToggleService}
+                className="scale-90"
+              />
+            </div>
+          ) : null}
 
           <Button
             variant="outline"
@@ -140,7 +144,7 @@ export function Header() {
             onClick={() => setWebPasswordModalOpen(true)}
           >
             <SettingsIcon className="h-3.5 w-3.5" />
-            <span className="text-xs">Web 密码</span>
+            <span className="text-xs">密码</span>
           </Button>
         </div>
       </header>

@@ -50,6 +50,22 @@ fn compute_url_keeps_v1_for_models_on_codex_backend() {
 }
 
 #[test]
+fn compute_url_keeps_compact_responses_for_codex_backend() {
+    let (url, alt) = compute_upstream_url(
+        "https://chatgpt.com/backend-api/codex",
+        "/v1/responses/compact?trace=1",
+    );
+    assert_eq!(
+        url,
+        "https://chatgpt.com/backend-api/codex/responses/compact?trace=1"
+    );
+    assert_eq!(
+        alt.as_deref(),
+        Some("https://chatgpt.com/backend-api/codex/v1/responses/compact?trace=1")
+    );
+}
+
+#[test]
 fn normalize_upstream_base_url_for_chatgpt_host() {
     assert_eq!(
         normalize_upstream_base_url("https://chatgpt.com"),

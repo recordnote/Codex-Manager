@@ -413,6 +413,10 @@ fn responses_retains_service_tier_for_codex_supported_fields() {
 fn responses_compact_uses_codex_compat_rewrite() {
     let body = json!({
         "model": "gpt-5.3-codex",
+        "tools": [{ "type": "function", "name": "ping", "parameters": { "type": "object", "properties": {} } }],
+        "parallel_tool_calls": true,
+        "reasoning": { "effort": "high" },
+        "text": { "verbosity": "low" },
         "input": "compact me",
         "stream": false,
         "store": true,
@@ -428,25 +432,29 @@ fn responses_compact_uses_codex_compat_rewrite() {
     );
     let value: serde_json::Value = serde_json::from_slice(&out).expect("parse output body");
     assert_eq!(
-        value.get("stream").and_then(serde_json::Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        value.get("store").and_then(serde_json::Value::as_bool),
-        Some(false)
-    );
-    assert_eq!(
         value
             .get("instructions")
             .and_then(serde_json::Value::as_str),
         Some("")
     );
+    assert!(value.get("tools").is_some());
     assert_eq!(
         value
-            .get("service_tier")
-            .and_then(serde_json::Value::as_str),
-        Some("priority")
+            .get("parallel_tool_calls")
+            .and_then(serde_json::Value::as_bool),
+        Some(true)
     );
+    assert_eq!(
+        value
+            .get("reasoning")
+            .and_then(|reasoning| reasoning.get("effort"))
+            .and_then(serde_json::Value::as_str),
+        Some("high")
+    );
+    assert!(value.get("text").is_some());
+    assert!(value.get("stream").is_none());
+    assert!(value.get("store").is_none());
+    assert!(value.get("service_tier").is_none());
     assert!(value.get("user").is_none());
     assert!(value
         .get("input")

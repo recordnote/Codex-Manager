@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, 
   Users, 
@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store/useAppStore";
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 
 const NAV_ITEMS = [
   { name: "仪表盘", href: "/", icon: LayoutDashboard },
@@ -42,7 +42,36 @@ NavItem.displayName = "NavItem";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isSidebarOpen, toggleSidebar } = useAppStore();
+
+  useEffect(() => {
+    const runtime = globalThis as typeof globalThis & {
+      requestIdleCallback?: (
+        callback: IdleRequestCallback,
+        options?: IdleRequestOptions,
+      ) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    const prefetchRoutes = () => {
+      for (const item of NAV_ITEMS) {
+        if (item.href !== pathname) {
+          router.prefetch(item.href);
+        }
+      }
+    };
+
+    if (runtime.requestIdleCallback) {
+      const idleId = runtime.requestIdleCallback(() => prefetchRoutes(), {
+        timeout: 1200,
+      });
+      return () => runtime.cancelIdleCallback?.(idleId);
+    }
+
+    const timer = globalThis.setTimeout(prefetchRoutes, 120);
+    return () => globalThis.clearTimeout(timer);
+  }, [pathname, router]);
 
   const renderedItems = useMemo(() => 
     NAV_ITEMS.map((item) => (

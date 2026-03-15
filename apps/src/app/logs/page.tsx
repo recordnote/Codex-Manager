@@ -1,14 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Search, Shield, Trash2, Zap } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Database,
+  RefreshCw,
+  Search,
+  Shield,
+  Trash2,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/modals/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -27,7 +37,7 @@ import {
 import { accountClient } from "@/lib/api/account-client";
 import { serviceClient } from "@/lib/api/service-client";
 import { useAppStore } from "@/lib/store/useAppStore";
-import { formatTsFromSeconds } from "@/lib/utils/usage";
+import { formatCompactNumber, formatTsFromSeconds } from "@/lib/utils/usage";
 import { cn } from "@/lib/utils";
 import { RequestLog } from "@/types";
 
@@ -55,6 +65,61 @@ function getStatusBadge(statusCode: number | null) {
     <Badge className="border-red-500/20 bg-red-500/10 text-red-500">
       {statusCode}
     </Badge>
+  );
+}
+
+function SummaryCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  toneClass,
+}: {
+  title: string;
+  value: string;
+  description: string;
+  icon: LucideIcon;
+  toneClass: string;
+}) {
+  return (
+    <Card
+      size="sm"
+      className="glass-card border-none shadow-sm backdrop-blur-md transition-all hover:-translate-y-0.5"
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+        <CardTitle className="text-[13px] font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+        <div
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-xl",
+            toneClass,
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-0.5">
+        <div className="text-[2rem] leading-none font-semibold tracking-tight">
+          {value}
+        </div>
+        <p className="text-[11px] text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LogsPageSkeleton() {
+  return (
+    <div className="space-y-5">
+      <Skeleton className="h-28 w-full rounded-3xl" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-32 w-full rounded-3xl" />
+        ))}
+      </div>
+      <Skeleton className="h-[420px] w-full rounded-3xl" />
+    </div>
   );
 }
 
@@ -153,9 +218,9 @@ function AccountKeyInfoCell({
         <div className="flex flex-col gap-0.5 opacity-80">
           <div className="flex items-center gap-1">
             <Zap className="h-3 w-3 text-yellow-500" />
-            <span className="max-w-[140] truncate">{displayAccount}</span>
+            <span className="max-w-[140px] truncate">{displayAccount}</span>
           </div>
-          <div className="flex items-center gap-1 text-[9] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
             <Shield className="h-2.5 w-2.5" />
             <span className="font-mono">
               {formatCompactKeyLabel(log.keyId)}
@@ -164,24 +229,24 @@ function AccountKeyInfoCell({
         </div>
       </TooltipTrigger>
       <TooltipContent className="max-w-sm">
-        <div className="flex min-w-[240] flex-col gap-2">
+        <div className="flex min-w-[240px] flex-col gap-2">
           {hasNamedAccount ? (
             <div className="space-y-0.5">
               <div className="text-[10px] text-background/70">邮箱 / 名称</div>
-              <div className="break-all font-mono text-[11]">
+              <div className="break-all font-mono text-[11px]">
                 {accountLabel}
               </div>
             </div>
           ) : null}
           <div className="space-y-0.5">
             <div className="text-[10px] text-background/70">账号 ID</div>
-            <div className="break-all font-mono text-[11]">
+            <div className="break-all font-mono text-[11px]">
               {log.accountId || "-"}
             </div>
           </div>
           <div className="space-y-0.5">
             <div className="text-[10px] text-background/70">密钥</div>
-            <div className="break-all font-mono text-[11]">
+            <div className="break-all font-mono text-[11px]">
               {log.keyId || "-"}
             </div>
           </div>
@@ -204,25 +269,25 @@ function RequestRouteInfoCell({ log }: { log: RequestLog }) {
       <TooltipTrigger render={<div />} className="block text-left">
         <div className="flex flex-col gap-0.5">
           <span className="font-bold text-primary">{log.method || "-"}</span>
-          <span className="max-w-[180] truncate text-muted-foreground">
+          <span className="max-w-[200px] truncate text-muted-foreground">
             {displayPath}
           </span>
         </div>
       </TooltipTrigger>
       <TooltipContent className="max-w-md">
-        <div className="flex min-w-[280] flex-col gap-2">
+        <div className="flex min-w-[280px] flex-col gap-2">
           <div className="space-y-0.5">
             <div className="text-[10px] text-background/70">方法</div>
-            <div className="font-mono text-[11]">{log.method || "-"}</div>
+            <div className="font-mono text-[11px]">{log.method || "-"}</div>
           </div>
           <div className="space-y-0.5">
             <div className="text-[10px] text-background/70">显示地址</div>
-            <div className="break-all font-mono text-[11]">{displayPath}</div>
+            <div className="break-all font-mono text-[11px]">{displayPath}</div>
           </div>
           {recordedPath && recordedPath !== displayPath ? (
             <div className="space-y-0.5">
               <div className="text-[10px] text-background/70">记录地址</div>
-              <div className="break-all font-mono text-[11]">
+              <div className="break-all font-mono text-[11px]">
                 {recordedPath}
               </div>
             </div>
@@ -230,7 +295,7 @@ function RequestRouteInfoCell({ log }: { log: RequestLog }) {
           {originalPath && originalPath !== displayPath ? (
             <div className="space-y-0.5">
               <div className="text-[10px] text-background/70">原始地址</div>
-              <div className="break-all font-mono text-[11]">
+              <div className="break-all font-mono text-[11px]">
                 {originalPath}
               </div>
             </div>
@@ -238,13 +303,15 @@ function RequestRouteInfoCell({ log }: { log: RequestLog }) {
           {adaptedPath && adaptedPath !== displayPath ? (
             <div className="space-y-0.5">
               <div className="text-[10px] text-background/70">转发地址</div>
-              <div className="break-all font-mono text-[11]">{adaptedPath}</div>
+              <div className="break-all font-mono text-[11px]">
+                {adaptedPath}
+              </div>
             </div>
           ) : null}
           {log.responseAdapter ? (
             <div className="space-y-0.5">
               <div className="text-[10px] text-background/70">适配器</div>
-              <div className="break-all font-mono text-[11]">
+              <div className="break-all font-mono text-[11px]">
                 {log.responseAdapter}
               </div>
             </div>
@@ -252,7 +319,7 @@ function RequestRouteInfoCell({ log }: { log: RequestLog }) {
           {upstreamDisplay ? (
             <div className="space-y-0.5">
               <div className="text-[10px] text-background/70">上游</div>
-              <div className="break-all font-mono text-[11]">
+              <div className="break-all font-mono text-[11px]">
                 {upstreamDisplay}
               </div>
             </div>
@@ -260,7 +327,9 @@ function RequestRouteInfoCell({ log }: { log: RequestLog }) {
           {upstreamUrl ? (
             <div className="space-y-0.5">
               <div className="text-[10px] text-background/70">上游地址</div>
-              <div className="break-all font-mono text-[11]">{upstreamUrl}</div>
+              <div className="break-all font-mono text-[11px]">
+                {upstreamUrl}
+              </div>
             </div>
           ) : null}
         </div>
@@ -278,12 +347,14 @@ function ErrorInfoCell({ error }: { error: string }) {
   return (
     <Tooltip>
       <TooltipTrigger render={<div />} className="block text-left">
-        <span className="block max-w-[180] truncate font-medium text-red-400">
+        <span className="block max-w-[220px] truncate font-medium text-red-400">
           {text}
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-md">
-        <div className="max-w-[360] break-all font-mono text-[11]">{text}</div>
+        <div className="max-w-[360px] break-all font-mono text-[11px]">
+          {text}
+        </div>
       </TooltipContent>
     </Tooltip>
   );
@@ -297,7 +368,7 @@ function ModelEffortCell({ log }: { log: RequestLog }) {
   return (
     <Tooltip>
       <TooltipTrigger render={<div />} className="block text-left">
-        <span className="block max-w-[120px] truncate font-medium text-foreground">
+        <span className="block max-w-[160px] truncate font-medium text-foreground">
           {display}
         </span>
       </TooltipTrigger>
@@ -305,11 +376,15 @@ function ModelEffortCell({ log }: { log: RequestLog }) {
         <div className="flex min-w-[200px] flex-col gap-2">
           <div className="space-y-0.5">
             <div className="text-[10px] text-background/70">模型</div>
-            <div className="break-all font-mono text-[11]">{model || "-"}</div>
+            <div className="break-all font-mono text-[11px]">
+              {model || "-"}
+            </div>
           </div>
           <div className="space-y-0.5">
             <div className="text-[10px] text-background/70">推理</div>
-            <div className="break-all font-mono text-[11]">{effort || "-"}</div>
+            <div className="break-all font-mono text-[11px]">
+              {effort || "-"}
+            </div>
           </div>
         </div>
       </TooltipContent>
@@ -317,7 +392,7 @@ function ModelEffortCell({ log }: { log: RequestLog }) {
   );
 }
 
-export default function LogsPage() {
+function LogsPageContent() {
   const searchParams = useSearchParams();
   const { serviceStatus } = useAppStore();
   const queryClient = useQueryClient();
@@ -376,20 +451,55 @@ export default function LogsPage() {
     });
   }, [filter, logs]);
 
+  const summary = useMemo(() => {
+    const successCount = filteredLogs.filter((log) => {
+      const statusCode = log.statusCode ?? 0;
+      return statusCode >= 200 && statusCode < 300;
+    }).length;
+    const errorCount = filteredLogs.filter((log) => {
+      const statusCode = log.statusCode ?? 0;
+      return statusCode >= 400 || Boolean(String(log.error || "").trim());
+    }).length;
+    const totalTokens = filteredLogs.reduce(
+      (sum, log) => sum + (log.totalTokens ?? 0),
+      0,
+    );
+
+    return {
+      total: logs.length,
+      visible: filteredLogs.length,
+      successCount,
+      errorCount,
+      totalTokens,
+    };
+  }, [filteredLogs, logs.length]);
+
+  const currentFilterLabel =
+    filter === "all"
+      ? "全部状态"
+      : filter === "2xx"
+        ? "成功请求"
+        : filter === "4xx"
+          ? "客户端错误"
+          : "服务端错误";
+  const compactMetaText = `${summary.visible}/${summary.total} 条 · ${currentFilterLabel} · ${
+    serviceStatus.connected ? "5 秒刷新" : "服务未连接"
+  }`;
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex max-w-md flex-1 items-center gap-2">
-          <div className="relative w-full">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+    <div className="animate-in space-y-5 fade-in duration-500">
+      <Card className="glass-card border-none shadow-md backdrop-blur-md">
+        <CardContent className="grid gap-3 pt-0 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center">
+          <div className="relative min-w-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="搜索路径、账号或密钥..."
-              className="glass-card h-10 pl-9"
+              className="glass-card h-10 rounded-xl pl-10"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-muted/30 p-1">
+          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-border/60 bg-muted/30 p-1">
             {["all", "2xx", "4xx", "5xx"].map((item) => (
               <button
                 key={item}
@@ -405,43 +515,109 @@ export default function LogsPage() {
               </button>
             ))}
           </div>
-        </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="glass-card h-9 rounded-xl px-3.5"
+              onClick={() =>
+                queryClient.invalidateQueries({ queryKey: ["logs"] })
+              }
+            >
+              <RefreshCw className="mr-1.5 h-4 w-4" /> 刷新
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-9 rounded-xl px-3.5"
+              onClick={() => setClearConfirmOpen(true)}
+              disabled={clearMutation.isPending}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" /> 清空日志
+            </Button>
+          </div>
+          <div className="text-[11px] text-muted-foreground lg:justify-self-end lg:text-right">
+            <span className="font-medium text-foreground">
+              {compactMetaText}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="glass-card"
-            onClick={() =>
-              queryClient.invalidateQueries({ queryKey: ["logs"] })
-            }
-          >
-            <RefreshCw className="mr-2 h-4 w-4" /> 刷新
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setClearConfirmOpen(true)}
-            disabled={clearMutation.isPending}
-          >
-            <Trash2 className="mr-2 h-4 w-4" /> 清空日志
-          </Button>
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          title="当前结果"
+          value={`${summary.visible}`}
+          description={`总日志 ${summary.total} 条`}
+          icon={Zap}
+          toneClass="bg-primary/12 text-primary"
+        />
+        <SummaryCard
+          title="2XX 成功"
+          value={`${summary.successCount}`}
+          description="状态码 200-299"
+          icon={CheckCircle2}
+          toneClass="bg-green-500/12 text-green-500"
+        />
+        <SummaryCard
+          title="异常请求"
+          value={`${summary.errorCount}`}
+          description="4xx / 5xx 或显式错误"
+          icon={AlertTriangle}
+          toneClass="bg-red-500/12 text-red-500"
+        />
+        <SummaryCard
+          title="累计令牌"
+          value={formatCompactNumber(summary.totalTokens, "0")}
+          description="当前筛选结果中的 total tokens"
+          icon={Database}
+          toneClass="bg-amber-500/12 text-amber-500"
+        />
       </div>
 
       <Card className="glass-card overflow-hidden border-none shadow-xl backdrop-blur-md">
-        <CardContent className="p-0">
-          <Table className="table-fixed">
+        <CardHeader className="gap-1.5 border-b border-border/40 bg-muted/20 py-4">
+          <div className="flex flex-col gap-1 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <CardTitle className="text-[15px] font-semibold">
+                请求明细 按{" "}
+                <span className="font-medium text-foreground">
+                  {currentFilterLabel}
+                </span>{" "}
+                展示
+              </CardTitle>
+            </div>
+            <div className="text-xs text-muted-foreground"></div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-0">
+          <Table className="min-w-[1320px] table-fixed">
             <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead className="w-[150]">时间</TableHead>
-                <TableHead className="w-[120]">方法 / 路径</TableHead>
-                <TableHead className="w-[210]">账号 / 密钥</TableHead>
-                <TableHead className="w-[120]">模型 / 推理</TableHead>
-                <TableHead className="w-[70]">状态</TableHead>
-                <TableHead className="w-[80]">请求时长</TableHead>
-                <TableHead className="w-[110]">令牌</TableHead>
-                <TableHead className="w-[180]">错误</TableHead>
+                <TableHead className="h-12 w-[150px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  时间
+                </TableHead>
+                <TableHead className="w-[120px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  方法 / 路径
+                </TableHead>
+                <TableHead className="w-[224px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  账号 / 密钥
+                </TableHead>
+                <TableHead className="w-[180px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  模型 / 推理
+                </TableHead>
+                <TableHead className="w-[92px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  状态
+                </TableHead>
+                <TableHead className="w-[110px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  请求时长
+                </TableHead>
+                <TableHead className="w-[148px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  令牌
+                </TableHead>
+                <TableHead className="w-[240px] px-4 text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  错误
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -478,7 +654,7 @@ export default function LogsPage() {
                 <TableRow>
                   <TableCell
                     colSpan={8}
-                    className="h-48 text-center text-muted-foreground"
+                    className="h-52 px-4 text-center text-sm text-muted-foreground"
                   >
                     {!serviceStatus.connected
                       ? "服务未连接，无法获取日志"
@@ -489,15 +665,15 @@ export default function LogsPage() {
                 filteredLogs.map((log) => (
                   <TableRow
                     key={log.id}
-                    className="group text-[11] hover:bg-muted/30"
+                    className="group text-xs hover:bg-muted/20"
                   >
-                    <TableCell className="font-mono text-muted-foreground">
+                    <TableCell className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
                       {formatTsFromSeconds(log.createdAt, "未知时间")}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4 py-3 align-top">
                       <RequestRouteInfoCell log={log} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4 py-3 align-top">
                       <AccountKeyInfoCell
                         log={log}
                         accountLabel={resolveAccountDisplayName(
@@ -506,15 +682,17 @@ export default function LogsPage() {
                         )}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-4 py-3 align-top">
                       <ModelEffortCell log={log} />
                     </TableCell>
-                    <TableCell>{getStatusBadge(log.statusCode)}</TableCell>
-                    <TableCell className="font-mono text-primary">
+                    <TableCell className="px-4 py-3 align-top">
+                      {getStatusBadge(log.statusCode)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 font-mono text-primary">
                       {formatDuration(log.durationMs)}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col text-[9] text-muted-foreground">
+                    <TableCell className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-0.5 text-[10px] text-muted-foreground">
                         <span>总 {log.totalTokens?.toLocaleString() || 0}</span>
                         <span>
                           输入 {log.inputTokens?.toLocaleString() || 0}
@@ -524,7 +702,7 @@ export default function LogsPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-left">
+                    <TableCell className="px-4 py-3 text-left align-top">
                       <ErrorInfoCell error={log.error} />
                     </TableCell>
                   </TableRow>
@@ -545,5 +723,13 @@ export default function LogsPage() {
         onConfirm={() => clearMutation.mutate()}
       />
     </div>
+  );
+}
+
+export default function LogsPage() {
+  return (
+    <Suspense fallback={<LogsPageSkeleton />}>
+      <LogsPageContent />
+    </Suspense>
   );
 }

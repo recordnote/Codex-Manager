@@ -1,10 +1,19 @@
 use serde_json::Value;
 
-use super::request_rewrite_shared::{path_matches_template, retain_fields_with_allowlist};
+use super::request_rewrite_shared::{
+    path_matches_template, retain_fields_by_templates, TemplateAllowlist,
+};
+
+pub(super) fn is_compact_path(path: &str) -> bool {
+    path_matches_template(path, "/v1/responses/compact")
+}
+
+fn is_standard_responses_path(path: &str) -> bool {
+    path_matches_template(path, "/v1/responses")
+}
 
 pub(super) fn is_responses_path(path: &str) -> bool {
-    path_matches_template(path, "/v1/responses")
-        || path_matches_template(path, "/v1/responses/compact")
+    is_standard_responses_path(path) || is_compact_path(path)
 }
 
 pub(super) fn ensure_instructions(path: &str, obj: &mut serde_json::Map<String, Value>) -> bool {
@@ -52,7 +61,7 @@ pub(super) fn ensure_input_list(path: &str, obj: &mut serde_json::Map<String, Va
 }
 
 pub(super) fn ensure_stream_true(path: &str, obj: &mut serde_json::Map<String, Value>) -> bool {
-    if !is_responses_path(path) {
+    if !is_standard_responses_path(path) {
         return false;
     }
     let stream = obj
@@ -80,7 +89,7 @@ pub(super) fn take_stream_passthrough_flag(
 }
 
 pub(super) fn ensure_store_false(path: &str, obj: &mut serde_json::Map<String, Value>) -> bool {
-    if !is_responses_path(path) {
+    if !is_standard_responses_path(path) {
         return false;
     }
     let store = obj.entry("store".to_string()).or_insert(Value::Bool(false));
@@ -208,14 +217,38 @@ fn is_supported_openai_responses_key(key: &str) -> bool {
     )
 }
 
+fn is_supported_openai_compact_key(key: &str) -> bool {
+    matches!(
+        key,
+        "input"
+            | "instructions"
+            | "metadata"
+            | "model"
+            | "parallel_tool_calls"
+            | "reasoning"
+            | "text"
+            | "tools"
+    )
+}
+
 pub(super) fn retain_official_fields(
     path: &str,
     obj: &mut serde_json::Map<String, Value>,
 ) -> Vec<String> {
-    if !is_responses_path(path) {
-        return Vec::new();
-    }
-    retain_fields_with_allowlist(obj, is_supported_openai_responses_key)
+    retain_fields_by_templates(
+        path,
+        obj,
+        &[
+            TemplateAllowlist {
+                template: "/v1/responses/compact",
+                allow: is_supported_openai_compact_key,
+            },
+            TemplateAllowlist {
+                template: "/v1/responses",
+                allow: is_supported_openai_responses_key,
+            },
+        ],
+    )
 }
 
 fn is_supported_codex_responses_key(key: &str) -> bool {
@@ -238,15 +271,32 @@ fn is_supported_codex_responses_key(key: &str) -> bool {
     )
 }
 
+fn is_supported_codex_compact_key(key: &str) -> bool {
+    matches!(
+        key,
+        "model" | "instructions" | "input" | "tools" | "parallel_tool_calls" | "reasoning" | "text"
+    )
+}
+
 pub(super) fn retain_codex_fields(
     path: &str,
     obj: &mut serde_json::Map<String, Value>,
 ) -> Vec<String> {
-    if !is_responses_path(path) {
-        return Vec::new();
-    }
-    // 中文注释：仅保留 Codex CLI /responses 固定字段集合，其他字段全部丢弃。
-    // `service_tier` 在 OpenAI 官方 `/v1/responses` 可以保留，但在 Codex backend 兼容路径
-    // 先恢复到 v0.1.4 的白名单行为，避免小请求稳定触发 upstream challenge。
-    retain_fields_with_allowlist(obj, is_supported_codex_responses_key)
+    // 中文注释：仅保留 Codex CLI 固定字段集合，其他字段全部丢弃。
+    // `/responses/compact` 与普通 `/responses` 的 wire shape 不同：
+    // 前者是非流式 JSON compaction 请求，不接受 `stream` / `store` / `service_tier` 等字段。
+    retain_fields_by_templates(
+        path,
+        obj,
+        &[
+            TemplateAllowlist {
+                template: "/v1/responses/compact",
+                allow: is_supported_codex_compact_key,
+            },
+            TemplateAllowlist {
+                template: "/v1/responses",
+                allow: is_supported_codex_responses_key,
+            },
+        ],
+    )
 }

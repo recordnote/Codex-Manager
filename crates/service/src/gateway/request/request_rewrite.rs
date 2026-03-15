@@ -286,22 +286,24 @@ pub(super) fn apply_request_overrides(
             }
 
             if use_codex_responses_compat {
-                let had_stream_passthrough = obj.contains_key("stream_passthrough");
-                let stream_passthrough = responses::take_stream_passthrough_flag(path, obj);
-                if had_stream_passthrough {
-                    changed = true;
-                }
                 if responses::normalize_dynamic_tools_to_tools(path, obj) {
                     changed = true;
                 }
                 if responses::ensure_input_list(path, obj) {
                     changed = true;
                 }
-                if !stream_passthrough && responses::ensure_stream_true(path, obj) {
-                    changed = true;
-                }
-                if responses::ensure_store_false(path, obj) {
-                    changed = true;
+                if !responses::is_compact_path(path) {
+                    let had_stream_passthrough = obj.contains_key("stream_passthrough");
+                    let stream_passthrough = responses::take_stream_passthrough_flag(path, obj);
+                    if had_stream_passthrough {
+                        changed = true;
+                    }
+                    if !stream_passthrough && responses::ensure_stream_true(path, obj) {
+                        changed = true;
+                    }
+                    if responses::ensure_store_false(path, obj) {
+                        changed = true;
+                    }
                 }
                 if responses::ensure_instructions(path, obj) {
                     changed = true;

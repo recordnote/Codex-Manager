@@ -74,7 +74,10 @@ use upstream::config::{
     should_try_openai_fallback, should_try_openai_fallback_by_status,
 };
 #[cfg(test)]
-use upstream::header_profile::{build_codex_upstream_headers, CodexUpstreamHeaderInput};
+pub(super) use upstream::header_profile::{
+    build_codex_compact_upstream_headers, build_codex_upstream_headers,
+    CodexCompactUpstreamHeaderInput, CodexUpstreamHeaderInput,
+};
 
 // HTTP backend runtime metrics are exported via the gateway `/metrics` endpoint as well.
 pub(crate) fn record_http_queue_capacity(normal_capacity: usize, stream_capacity: usize) {

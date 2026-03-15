@@ -8,6 +8,8 @@ pub(crate) struct IncomingHeaderSnapshot {
     authorization_bearer_case_insensitive: Option<String>,
     x_api_key: Option<String>,
     session_id: Option<String>,
+    client_request_id: Option<String>,
+    subagent: Option<String>,
     turn_state: Option<String>,
     conversation_id: Option<String>,
 }
@@ -42,6 +44,20 @@ impl IncomingHeaderSnapshot {
                 let value = header.value.as_str().trim();
                 if !value.is_empty() {
                     snapshot.session_id = Some(value.to_string());
+                }
+                continue;
+            }
+            if snapshot.client_request_id.is_none() && header.field.equiv("x-client-request-id") {
+                let value = header.value.as_str().trim();
+                if !value.is_empty() {
+                    snapshot.client_request_id = Some(value.to_string());
+                }
+                continue;
+            }
+            if snapshot.subagent.is_none() && header.field.equiv("x-openai-subagent") {
+                let value = header.value.as_str().trim();
+                if !value.is_empty() {
+                    snapshot.subagent = Some(value.to_string());
                 }
                 continue;
             }
@@ -84,6 +100,14 @@ impl IncomingHeaderSnapshot {
 
     pub(crate) fn session_id(&self) -> Option<&str> {
         self.session_id.as_deref()
+    }
+
+    pub(crate) fn client_request_id(&self) -> Option<&str> {
+        self.client_request_id.as_deref()
+    }
+
+    pub(crate) fn subagent(&self) -> Option<&str> {
+        self.subagent.as_deref()
     }
 
     pub(crate) fn turn_state(&self) -> Option<&str> {

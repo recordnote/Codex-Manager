@@ -2,6 +2,11 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { fetchWithRetry, runWithControl, RequestOptions } from "../utils/request";
 import { useAppStore } from "../store/useAppStore";
 
+const WEB_RPC_METHOD_MAP = {
+  app_settings_get: "appSettings/get",
+  app_settings_set: "appSettings/set",
+} as const;
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -11,6 +16,68 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error || "");
+}
+
+function resolveRpcErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error;
+  const record = asRecord(error);
+  if (record?.message && typeof record.message === "string") {
+    return record.message;
+  }
+  return error ? JSON.stringify(error) : "RPC 请求失败";
+}
+
+function throwIfBusinessError(payload: unknown): void {
+  const msg = resolveBusinessErrorMessage(payload);
+  if (msg) throw new Error(msg);
+}
+
+function buildWebRpcParams(
+  method: keyof typeof WEB_RPC_METHOD_MAP,
+  params?: Record<string, unknown>
+): Record<string, unknown> {
+  if (method === "app_settings_set") {
+    return asRecord(asRecord(params)?.patch) ?? {};
+  }
+  return params ?? {};
+}
+
+async function invokeWebRpc<T>(
+  method: keyof typeof WEB_RPC_METHOD_MAP,
+  params?: Record<string, unknown>,
+  options: RequestOptions = {}
+): Promise<T> {
+  const rpcMethod = WEB_RPC_METHOD_MAP[method];
+  const response = await fetchWithRetry(
+    "/api/rpc",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Date.now(),
+        method: rpcMethod,
+        params: buildWebRpcParams(method, params),
+      }),
+    },
+    options
+  );
+
+  if (!response.ok) throw new Error(`RPC 请求失败（HTTP ${response.status}）`);
+
+  const payload = (await response.json()) as unknown;
+  const responseRecord = asRecord(payload);
+  if (responseRecord && "error" in responseRecord) {
+    throw new Error(resolveRpcErrorMessage(responseRecord.error));
+  }
+  if (responseRecord && "result" in responseRecord) {
+    const result = responseRecord.result as T;
+    throwIfBusinessError(result);
+    return result;
+  }
+
+  throwIfBusinessError(payload);
+  return payload as T;
 }
 
 export function isTauriRuntime(): boolean {
@@ -64,7 +131,14 @@ export async function invoke<T>(
   options: RequestOptions = {}
 ): Promise<T> {
   if (!isTauriRuntime()) {
-    throw new Error("桌面接口不可用（请在桌面端运行）");
+    if (method in WEB_RPC_METHOD_MAP) {
+      return invokeWebRpc(
+        method as keyof typeof WEB_RPC_METHOD_MAP,
+        params,
+        options
+      );
+    }
+    throw new Error("当前操作仅支持桌面端");
   }
 
   const response = await runWithControl<unknown>(
@@ -83,11 +157,6 @@ export async function invoke<T>(
           : JSON.stringify(error)
     );
   }
-
-  const throwIfBusinessError = (payload: unknown) => {
-    const msg = resolveBusinessErrorMessage(payload);
-    if (msg) throw new Error(msg);
-  };
 
   if (responseRecord && "result" in responseRecord) {
     const payload = responseRecord.result as T;

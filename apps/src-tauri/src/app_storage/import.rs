@@ -42,3 +42,18 @@ pub(crate) fn read_account_import_contents_from_directory(
     }
     Ok((json_files, contents))
 }
+
+pub(crate) fn read_account_import_contents_from_files(
+    files: &[PathBuf],
+) -> Result<Vec<String>, String> {
+    let mut contents = Vec::with_capacity(files.len());
+    for path in files {
+        let text = fs::read_to_string(path)
+            .map_err(|err| format!("read import file failed ({}): {err}", path.display()))?;
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            contents.push(trimmed.to_string());
+        }
+    }
+    Ok(contents)
+}

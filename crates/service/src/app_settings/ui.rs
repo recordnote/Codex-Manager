@@ -8,8 +8,8 @@ use super::{
 
 const DEFAULT_UI_THEME: &str = "tech";
 const VALID_UI_THEMES: &[&str] = &[
-    "tech", "dark", "business", "mint", "sunset", "grape", "ocean", "forest", "rose", "slate",
-    "aurora",
+    "tech", "dark", "dark-one", "business", "mint", "sunset", "grape", "ocean", "forest",
+    "rose", "slate", "aurora",
 ];
 
 fn normalize_ui_theme(raw: Option<&str>) -> String {

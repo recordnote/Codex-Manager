@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { 
   Dialog, 
   DialogContent, 
@@ -35,6 +35,106 @@ interface AddAccountModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const GROUP_LABELS: Record<string, string> = {
+  TEAM: "团队 (TEAM)",
+  PERSONAL: "个人 (PERSONAL)",
+};
+
+function pickImportTokenField(record: unknown, keys: string[]): string {
+  const source = record && typeof record === "object" && !Array.isArray(record)
+    ? (record as Record<string, unknown>)
+    : null;
+  if (!source) return "";
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+function normalizeSingleImportRecord(record: unknown): unknown {
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return record;
+  }
+  const source = record as Record<string, unknown>;
+  const tokens = source.tokens;
+  if (tokens && typeof tokens === "object" && !Array.isArray(tokens)) {
+    return record;
+  }
+
+  const accessToken = pickImportTokenField(record, ["access_token", "accessToken"]);
+  const idToken = pickImportTokenField(record, ["id_token", "idToken"]);
+  const refreshToken = pickImportTokenField(record, ["refresh_token", "refreshToken"]);
+  if (!accessToken || !idToken || !refreshToken) {
+    return record;
+  }
+
+  const accountIdHint = pickImportTokenField(record, [
+    "account_id",
+    "accountId",
+    "chatgpt_account_id",
+    "chatgptAccountId",
+  ]);
+  const normalizedTokens: Record<string, string> = {
+    access_token: accessToken,
+    id_token: idToken,
+    refresh_token: refreshToken,
+  };
+  if (accountIdHint) {
+    normalizedTokens.account_id = accountIdHint;
+  }
+
+  return {
+    ...source,
+    tokens: normalizedTokens,
+  };
+}
+
+function normalizeImportContentForCompatibility(rawContent: string): string {
+  const text = String(rawContent || "").trim();
+  if (!text) return text;
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return JSON.stringify(parsed.map(normalizeSingleImportRecord));
+    }
+    if (parsed && typeof parsed === "object") {
+      return JSON.stringify(normalizeSingleImportRecord(parsed));
+    }
+    return text;
+  } catch {
+    return text;
+  }
+}
+
+function buildBulkImportContents(rawContent: string): string[] {
+  const text = String(rawContent || "").trim();
+  if (!text) return [];
+
+  if (text.startsWith("{") || text.startsWith("[")) {
+    return [normalizeImportContentForCompatibility(text)];
+  }
+
+  return text
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => normalizeImportContentForCompatibility(item));
+}
+
+function getBulkImportErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("invalid JSON object stream")) {
+    return "导入内容格式不正确。JSON 账号内容请整段粘贴；普通 Token 才按每行一个导入。";
+  }
+  if (message.includes("invalid JSON array")) {
+    return "JSON 数组格式不正确，请检查括号和逗号后重试。";
+  }
+  return message;
+}
+
 export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
   const [activeTab, setActiveTab] = useState("login");
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +153,20 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
   // Bulk Import
   const [bulkContent, setBulkContent] = useState("");
 
+  const resetModalState = useCallback(() => {
+    loginPollTokenRef.current += 1;
+    setActiveTab("login");
+    setIsLoading(false);
+    setIsPollingLogin(false);
+    setLoginHint("");
+    setTags("");
+    setNote("");
+    setGroup("");
+    setLoginUrl("");
+    setManualCallback("");
+    setBulkContent("");
+  }, []);
+
   const invalidateLoginQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["accounts"] }),
@@ -63,23 +177,15 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      loginPollTokenRef.current += 1;
-      setIsPollingLogin(false);
-      setLoginHint("");
-      setLoginUrl("");
-      setManualCallback("");
+      resetModalState();
     }
     onOpenChange(nextOpen);
   };
 
   const completeLoginSuccess = async (message: string) => {
-    loginPollTokenRef.current += 1;
-    setIsPollingLogin(false);
-    setLoginHint("");
     await invalidateLoginQueries();
     toast.success(message);
-    setLoginUrl("");
-    setManualCallback("");
+    resetModalState();
     onOpenChange(false);
   };
 
@@ -177,18 +283,22 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
     if (!bulkContent.trim()) return;
     setIsLoading(true);
     try {
-      const lines = bulkContent.split("\n").filter(l => l.trim());
-      await accountClient.import(lines);
-      toast.success(`成功导入 ${lines.length} 个账号内容`);
+      const contents = buildBulkImportContents(bulkContent);
+      const result = await accountClient.import(contents);
+      const total = Number(result?.total || 0);
+      const created = Number(result?.created || 0);
+      const updated = Number(result?.updated || 0);
+      const failed = Number(result?.failed || 0);
+      toast.success(`导入完成：共${total}，新增${created}，更新${updated}，失败${failed}`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["accounts"] }),
         queryClient.invalidateQueries({ queryKey: ["usage"] }),
         queryClient.invalidateQueries({ queryKey: ["startup-snapshot"] }),
       ]);
+      resetModalState();
       onOpenChange(false);
-      setBulkContent("");
     } catch (err: unknown) {
-      toast.error(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`导入失败: ${getBulkImportErrorMessage(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -202,9 +312,9 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden glass-card border-none">
+      <DialogContent className="glass-card max-h-[85vh] overflow-hidden border-none p-0 sm:max-w-[640px]">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="px-6 pt-6 bg-muted/20">
+          <div className="shrink-0 bg-muted/20 px-6 pt-6">
             <DialogHeader className="mb-4">
               <DialogTitle className="flex items-center gap-2">
                 <LogIn className="h-5 w-5 text-primary" />
@@ -224,8 +334,8 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
             </TabsList>
           </div>
 
-          <div className="p-6">
-            <TabsContent value="login" className="mt-0 space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
+          <div className="max-h-[calc(85vh-154px)] overflow-y-auto p-6">
+            <TabsContent value="login" className="mt-0 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>标签 (逗号分隔)</Label>
@@ -235,7 +345,13 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
                   <Label>分组</Label>
                   <Select value={group} onValueChange={(val) => val && setGroup(val)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="选择分组" />
+                      <SelectValue placeholder="选择分组">
+                        {(value) => {
+                          const nextValue = String(value || "").trim();
+                          if (!nextValue) return "选择分组";
+                          return GROUP_LABELS[nextValue] || nextValue;
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="TEAM">团队 (TEAM)</SelectItem>
@@ -291,12 +407,12 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="bulk" className="mt-0 space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+            <TabsContent value="bulk" className="mt-0 space-y-4">
               <div className="space-y-2">
-                <Label>账号数据 (每行一个)</Label>
+                <Label>账号数据 (Token 可每行一个，JSON 可整段粘贴)</Label>
                 <Textarea 
-                  placeholder="粘贴账号数据，例如 Refresh Token 或 Access Token..."
-                  className="min-h-[250px] font-mono text-[10px]"
+                  placeholder="粘贴账号数据。普通 Token 可每行一个；完整 JSON / JSON 数组请整段粘贴。"
+                  className="min-h-[250px] resize-none overflow-auto whitespace-pre-wrap break-all [overflow-wrap:anywhere] font-mono text-[10px] leading-4"
                   value={bulkContent}
                   onChange={(e) => setBulkContent(e.target.value)}
                 />

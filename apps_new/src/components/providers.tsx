@@ -22,6 +22,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         attribute="data-theme" 
         defaultTheme="tech" 
         enableSystem={false}
+        disableTransitionOnChange
         themes={["tech", "dark", "dark-one", "business", "mint", "sunset", "grape", "ocean", "forest", "rose", "slate", "aurora"]}
       >
         <TooltipProvider>

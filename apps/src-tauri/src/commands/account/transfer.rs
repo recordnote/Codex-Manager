@@ -1,6 +1,8 @@
 use rfd::FileDialog;
 
-use crate::app_storage::read_account_import_contents_from_directory;
+use crate::app_storage::{
+    read_account_import_contents_from_directory, read_account_import_contents_from_files,
+};
 use crate::commands::shared::rpc_call_in_background;
 use crate::rpc_client::rpc_call;
 
@@ -50,6 +52,40 @@ pub async fn service_account_import_by_directory(
     })
     .await
     .map_err(|err| format!("service_account_import_by_directory task failed: {err}"))?
+}
+
+#[tauri::command]
+pub async fn service_account_import_by_file(_addr: Option<String>) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let selected_files = FileDialog::new()
+            .set_title("选择账号导入文件")
+            .add_filter("账号文件", &["json", "txt"])
+            .pick_files();
+        let Some(file_paths) = selected_files else {
+            return Ok(serde_json::json!({
+              "result": {
+                "ok": true,
+                "canceled": true
+              }
+            }));
+        };
+
+        let contents = read_account_import_contents_from_files(&file_paths)?;
+        Ok(serde_json::json!({
+          "result": {
+            "ok": true,
+            "canceled": false,
+            "filePaths": file_paths
+              .iter()
+              .map(|path| path.to_string_lossy().to_string())
+              .collect::<Vec<_>>(),
+            "fileCount": file_paths.len(),
+            "contents": contents
+          }
+        }))
+    })
+    .await
+    .map_err(|err| format!("service_account_import_by_file task failed: {err}"))?
 }
 
 #[tauri::command]

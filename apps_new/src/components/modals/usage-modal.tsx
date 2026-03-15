@@ -34,6 +34,7 @@ interface UsageDetailRowProps {
   remainPercent: number | null;
   resetsAt: number | null | undefined;
   icon: LucideIcon;
+  tone: "green" | "blue";
 }
 
 function UsageDetailRow({
@@ -41,15 +42,20 @@ function UsageDetailRow({
   remainPercent,
   resetsAt,
   icon: Icon,
+  tone,
 }: UsageDetailRowProps) {
   const value = remainPercent ?? 0;
+  const iconToneClass =
+    tone === "blue" ? "bg-blue-500/10 text-blue-500" : "bg-green-500/10 text-green-500";
+  const trackClassName = tone === "blue" ? "bg-blue-500/20" : "bg-green-500/20";
+  const indicatorClassName = tone === "blue" ? "bg-blue-500" : "bg-green-500";
 
   return (
     <div className="space-y-3 rounded-2xl border border-primary/5 bg-accent/10 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="rounded-lg bg-primary/10 p-1.5">
-            <Icon className="h-4 w-4 text-primary" />
+          <div className={cn("rounded-lg p-1.5", iconToneClass)}>
+            <Icon className="h-4 w-4" />
           </div>
           <span className="font-semibold">{label}</span>
         </div>
@@ -59,7 +65,11 @@ function UsageDetailRow({
         </div>
       </div>
 
-      <Progress value={value} className="h-2" />
+      <Progress
+        value={value}
+        trackClassName={trackClassName}
+        indicatorClassName={indicatorClassName}
+      />
 
       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
         <span>已使用 {remainPercent == null ? "--" : `${Math.max(0, 100 - value)}%`}</span>
@@ -102,6 +112,7 @@ export default function UsageModal({
             remainPercent={account.primaryRemainPercent}
             resetsAt={account.usage?.resetsAt}
             icon={Clock}
+            tone="green"
           />
 
           <UsageDetailRow
@@ -109,6 +120,7 @@ export default function UsageModal({
             remainPercent={account.secondaryRemainPercent}
             resetsAt={account.usage?.secondaryResetsAt}
             icon={Calendar}
+            tone="blue"
           />
 
           <div className="text-center">

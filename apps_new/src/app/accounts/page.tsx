@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3,
+  Download,
   ExternalLink,
+  FileUp,
   FolderOpen,
   MoreVertical,
   Plus,
@@ -15,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AddAccountModal } from "@/components/modals/add-account-modal";
+import { ConfirmDialog } from "@/components/modals/confirm-dialog";
 import UsageModal from "@/components/modals/usage-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,8 +26,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -56,10 +62,13 @@ interface QuotaProgressProps {
   label: string;
   remainPercent: number | null;
   icon: LucideIcon;
+  tone: "green" | "blue";
 }
 
-function QuotaProgress({ label, remainPercent, icon: Icon }: QuotaProgressProps) {
+function QuotaProgress({ label, remainPercent, icon: Icon, tone }: QuotaProgressProps) {
   const value = remainPercent ?? 0;
+  const trackClassName = tone === "blue" ? "bg-blue-500/20" : "bg-green-500/20";
+  const indicatorClassName = tone === "blue" ? "bg-blue-500" : "bg-green-500";
 
   return (
     <div className="flex min-w-[120px] flex-col gap-1">
@@ -70,7 +79,11 @@ function QuotaProgress({ label, remainPercent, icon: Icon }: QuotaProgressProps)
         </div>
         <span className="font-medium">{remainPercent == null ? "--" : `${value}%`}</span>
       </div>
-      <Progress value={value} className="h-1.5" />
+      <Progress
+        value={value}
+        trackClassName={trackClassName}
+        indicatorClassName={indicatorClassName}
+      />
     </div>
   );
 }
@@ -86,8 +99,11 @@ export default function AccountsPage() {
     deleteAccount,
     deleteManyAccounts,
     deleteUnavailableFree,
+    importByFile,
     importByDirectory,
+    exportAccounts,
     isRefreshing,
+    isExporting,
     isDeletingMany,
   } = useAccounts();
 
@@ -100,6 +116,11 @@ export default function AccountsPage() {
   const [addAccountModalOpen, setAddAccountModalOpen] = useState(false);
   const [usageModalOpen, setUsageModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [deleteDialogState, setDeleteDialogState] = useState<
+    | { kind: "single"; account: Account }
+    | { kind: "selected"; ids: string[]; count: number }
+    | null
+  >(null);
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((account) => {
@@ -177,26 +198,33 @@ export default function AccountsPage() {
       toast.error("请先选择要删除的账号");
       return;
     }
-    if (!window.confirm(`确定删除选中的 ${effectiveSelectedIds.length} 个账号吗？`)) {
-      return;
-    }
-    deleteManyAccounts(effectiveSelectedIds);
-    setSelectedIds([]);
+    setDeleteDialogState({
+      kind: "selected",
+      ids: [...effectiveSelectedIds],
+      count: effectiveSelectedIds.length,
+    });
   };
 
   const handleDeleteSingle = (account: Account) => {
-    if (!window.confirm(`确定删除账号 ${account.name} 吗？`)) {
+    setDeleteDialogState({ kind: "single", account });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteDialogState) return;
+    if (deleteDialogState.kind === "single") {
+      deleteAccount(deleteDialogState.account.id);
       return;
     }
-    deleteAccount(account.id);
+    deleteManyAccounts(deleteDialogState.ids);
+    setSelectedIds((current) => current.filter((id) => !deleteDialogState.ids.includes(id)));
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative w-64">
+        <div className="flex flex-wrap items-start gap-4 xl:flex-nowrap">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="搜索账号名 / 编号..."
@@ -206,7 +234,7 @@ export default function AccountsPage() {
               />
             </div>
             <Select value={groupFilter} onValueChange={handleGroupFilterChange}>
-              <SelectTrigger className="h-10 w-[160px] bg-card/50">
+              <SelectTrigger className="h-10 w-[160px] shrink-0 bg-card/50">
                 <SelectValue placeholder="全部分组" />
               </SelectTrigger>
               <SelectContent>
@@ -218,7 +246,7 @@ export default function AccountsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex items-center rounded-lg border bg-muted/30 p-1">
+            <div className="flex shrink-0 items-center rounded-lg border bg-muted/30 p-1">
               {[
                 { id: "all", label: "全部" },
                 { id: "available", label: "可用" },
@@ -240,43 +268,86 @@ export default function AccountsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 self-start">
             <DropdownMenu>
               <DropdownMenuTrigger>
                 <Button
                   variant="outline"
-                  className="h-10 gap-2"
+                  className="h-10 min-w-[132px] justify-between gap-2 rounded-xl border-border/70 bg-card/70 px-3 shadow-sm backdrop-blur-sm"
                   render={<span />}
                   nativeButton={false}
                 >
-                  账号操作 <MoreVertical className="h-4 w-4" />
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-medium">账号操作</span>
+                    {effectiveSelectedIds.length > 0 ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        {effectiveSelectedIds.length}
+                      </span>
+                    ) : null}
+                  </span>
+                  <MoreVertical className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => setAddAccountModalOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" /> 添加账号
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => importByDirectory()}>
-                  <FolderOpen className="mr-2 h-4 w-4" /> 按文件夹导入
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-64 rounded-xl border border-border/70 bg-popover/95 p-2 shadow-xl backdrop-blur-md">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                    账号管理
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="h-9 rounded-lg px-2" onClick={() => setAddAccountModalOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> 添加账号
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="h-9 rounded-lg px-2" onClick={() => importByFile()}>
+                    <FileUp className="mr-2 h-4 w-4" /> 按文件导入
+                    <DropdownMenuShortcut>FILE</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="h-9 rounded-lg px-2" onClick={() => importByDirectory()}>
+                    <FolderOpen className="mr-2 h-4 w-4" /> 按文件夹导入
+                    <DropdownMenuShortcut>DIR</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-9 rounded-lg px-2"
+                    disabled={isExporting}
+                    onClick={() => exportAccounts()}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    导出账号
+                    <DropdownMenuShortcut>
+                      {isExporting ? "..." : "ZIP"}
+                    </DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => refreshAllAccounts()}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> 刷新所有账号
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                    批量操作
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="h-9 rounded-lg px-2" onClick={() => refreshAllAccounts()}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> 刷新所有账号
+                    <DropdownMenuShortcut>{isRefreshing ? "..." : "ALL"}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={!effectiveSelectedIds.length || isDeletingMany}
-                  className="text-destructive"
-                  onClick={handleDeleteSelected}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> 删除选中账号
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => deleteUnavailableFree()}
-                  className="text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> 一键清理不可用免费
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                    清理
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    disabled={!effectiveSelectedIds.length || isDeletingMany}
+                    variant="destructive"
+                    className="h-9 rounded-lg px-2"
+                    onClick={handleDeleteSelected}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> 删除选中账号
+                    <DropdownMenuShortcut>{effectiveSelectedIds.length || "-"}</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="h-9 rounded-lg px-2"
+                    onClick={() => deleteUnavailableFree()}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> 一键清理不可用免费
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
@@ -368,6 +439,7 @@ export default function AccountsPage() {
                         label="5小时"
                         remainPercent={account.primaryRemainPercent}
                         icon={RefreshCw}
+                        tone="green"
                       />
                     </TableCell>
                     <TableCell>
@@ -375,6 +447,7 @@ export default function AccountsPage() {
                         label="7天"
                         remainPercent={account.secondaryRemainPercent}
                         icon={RefreshCw}
+                        tone="blue"
                       />
                     </TableCell>
                     <TableCell>
@@ -412,15 +485,6 @@ export default function AccountsPage() {
                           title="用量详情"
                         >
                           <BarChart3 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground transition-colors hover:text-primary"
-                          onClick={() => refreshAccount(account.id)}
-                          title="立即刷新"
-                        >
-                          <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger>
@@ -510,13 +574,36 @@ export default function AccountsPage() {
         </div>
       </div>
 
-      <AddAccountModal open={addAccountModalOpen} onOpenChange={setAddAccountModalOpen} />
+      {addAccountModalOpen ? (
+        <AddAccountModal open={addAccountModalOpen} onOpenChange={setAddAccountModalOpen} />
+      ) : null}
       <UsageModal
         account={selectedAccount}
         open={usageModalOpen}
         onOpenChange={setUsageModalOpen}
         onRefresh={refreshAccount}
         isRefreshing={isRefreshing}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteDialogState)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogState(null);
+          }
+        }}
+        title={
+          deleteDialogState?.kind === "single"
+            ? "删除账号"
+            : "批量删除账号"
+        }
+        description={
+          deleteDialogState?.kind === "single"
+            ? `确定删除账号 ${deleteDialogState.account.name} 吗？删除后不可恢复。`
+            : `确定删除选中的 ${deleteDialogState?.count || 0} 个账号吗？删除后不可恢复。`
+        }
+        confirmText="删除"
+        confirmVariant="destructive"
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className={`${inter.className} bg-background text-foreground antialiased`}>
+      <body className={`${inter.className} antialiased`}>
         <Providers>
           <AppBootstrap>
             <div className="flex h-screen overflow-hidden">

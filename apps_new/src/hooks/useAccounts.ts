@@ -7,6 +7,7 @@ import { accountClient } from "@/lib/api/account-client";
 import { attachUsagesToAccounts } from "@/lib/api/normalize";
 
 type ImportByDirectoryResult = Awaited<ReturnType<typeof accountClient.importByDirectory>>;
+type ImportByFileResult = Awaited<ReturnType<typeof accountClient.importByFile>>;
 type ExportResult = Awaited<ReturnType<typeof accountClient.export>>;
 type DeleteUnavailableFreeResult = { deleted?: number };
 
@@ -130,6 +131,21 @@ export function useAccounts() {
     },
   });
 
+  const importByFileMutation = useMutation({
+    mutationFn: () => accountClient.importByFile(),
+    onSuccess: async (result: ImportByFileResult) => {
+      if (result?.canceled) {
+        toast.info("已取消导入");
+        return;
+      }
+      await invalidateAll();
+      toast.success(buildImportSummaryMessage(result));
+    },
+    onError: (error: unknown) => {
+      toast.error(`导入失败: ${getErrorMessage(error)}`);
+    },
+  });
+
   const exportMutation = useMutation({
     mutationFn: () => accountClient.export(),
     onSuccess: (result: ExportResult) => {
@@ -160,6 +176,7 @@ export function useAccounts() {
     deleteAccount: (accountId: string) => deleteMutation.mutate(accountId),
     deleteManyAccounts: (accountIds: string[]) => deleteManyMutation.mutate(accountIds),
     deleteUnavailableFree: () => deleteUnavailableFreeMutation.mutate(),
+    importByFile: () => importByFileMutation.mutate(),
     importByDirectory: () => importByDirectoryMutation.mutate(),
     exportAccounts: () => exportMutation.mutate(),
     isRefreshing: refreshMutation.isPending,

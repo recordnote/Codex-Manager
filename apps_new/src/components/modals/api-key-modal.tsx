@@ -25,6 +25,20 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Key, Globe, Clipboard, ShieldCheck } from "lucide-react";
 import { ApiKey } from "@/types";
 
+const PROTOCOL_LABELS: Record<string, string> = {
+  openai_compat: "OpenAI 兼容",
+  azure_openai: "Azure OpenAI",
+  anthropic_native: "Claude Code 兼容",
+};
+
+const REASONING_LABELS: Record<string, string> = {
+  auto: "跟随请求",
+  low: "低 (low)",
+  medium: "中 (medium)",
+  high: "高 (high)",
+  xhigh: "极高 (xhigh)",
+};
+
 interface ApiKeyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,6 +63,10 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
     queryFn: () => accountClient.listModels(false),
     enabled: open,
   });
+
+  const modelLabelMap = Object.fromEntries(
+    (models || []).map((model) => [model.slug, model.displayName])
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -165,7 +183,9 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
               <Label>协议类型</Label>
               <Select value={protocolType} onValueChange={(val) => val && setProtocolType(val)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {(value) => PROTOCOL_LABELS[String(value || "")] || "OpenAI 兼容"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="openai_compat">OpenAI 兼容</SelectItem>
@@ -178,7 +198,13 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
               <Label>绑定模型 (可选)</Label>
               <Select value={modelSlug} onValueChange={(val) => val && setModelSlug(val)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="跟随请求" />
+                  <SelectValue placeholder="跟随请求">
+                    {(value) => {
+                      const nextValue = String(value || "").trim();
+                      if (!nextValue || nextValue === "auto") return "跟随请求";
+                      return modelLabelMap[nextValue] || nextValue;
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">跟随请求</SelectItem>
@@ -196,7 +222,13 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
             <Label>推理等级 (可选)</Label>
             <Select value={reasoningEffort} onValueChange={(val) => val && setReasoningEffort(val)}>
               <SelectTrigger>
-                <SelectValue placeholder="跟随请求等级" />
+                <SelectValue placeholder="跟随请求等级">
+                  {(value) => {
+                    const nextValue = String(value || "").trim();
+                    if (!nextValue) return "跟随请求等级";
+                    return REASONING_LABELS[nextValue] || nextValue;
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="auto">跟随请求</SelectItem>

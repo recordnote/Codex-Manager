@@ -231,7 +231,6 @@ name = "codexmanager-web"
 version = "0.1.8"
 dependencies = [
  "axum",
- "bytes",
  "codexmanager-service",
  "include_dir",
  "mime_guess",

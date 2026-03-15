@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -63,6 +63,24 @@ const THEMES = [
   { id: "aurora", name: "极光青", color: "#0d9488" },
 ];
 
+const ROUTE_STRATEGY_LABELS: Record<string, string> = {
+  ordered: "顺序优先 (Ordered)",
+  balanced: "均衡轮询 (Balanced)",
+};
+
+const SETTINGS_TABS = ["general", "appearance", "gateway", "tasks", "env"] as const;
+type SettingsTab = (typeof SETTINGS_TABS)[number];
+const SETTINGS_ACTIVE_TAB_KEY = "codexmanager.settings.active-tab";
+
+function readInitialSettingsTab(): SettingsTab {
+  if (typeof window === "undefined") return "general";
+  const savedTab = window.sessionStorage.getItem(SETTINGS_ACTIVE_TAB_KEY);
+  if (savedTab && SETTINGS_TABS.includes(savedTab as SettingsTab)) {
+    return savedTab as SettingsTab;
+  }
+  return "general";
+}
+
 function stringifyNumber(value: number | null | undefined): string {
   return value == null ? "" : String(value);
 }
@@ -83,6 +101,8 @@ export default function SettingsPage() {
   const { setAppSettings: setStoreSettings } = useAppStore();
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
+  const lastSyncedSnapshotThemeRef = useRef<string | null>(null);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(readInitialSettingsTab);
   const [envSearch, setEnvSearch] = useState("");
   const [selectedEnvKey, setSelectedEnvKey] = useState<string | null>(null);
   const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
@@ -98,8 +118,11 @@ export default function SettingsPage() {
   });
 
   const updateSettings = useMutation({
-    mutationFn: (patch: Partial<AppSettings>) => appClient.setSettings(patch),
-    onSuccess: (nextSnapshot) => {
+    mutationFn: (patch: Partial<AppSettings> & { _silent?: boolean }) => {
+      const { _silent, ...actualPatch } = patch;
+      return appClient.setSettings(actualPatch);
+    },
+    onSuccess: (nextSnapshot, variables) => {
       queryClient.setQueryData(["app-settings-snapshot"], nextSnapshot);
       setStoreSettings(nextSnapshot);
       if (nextSnapshot.lowTransparency) {
@@ -107,7 +130,9 @@ export default function SettingsPage() {
       } else {
         document.body.classList.remove("low-transparency");
       }
-      toast.success("设置已更新");
+      if (!variables._silent) {
+        toast.success("设置已更新");
+      }
     },
     onError: (error: unknown) => {
       toast.error(`更新失败: ${getErrorMessage(error)}`);
@@ -115,10 +140,24 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (snapshot?.theme && snapshot.theme !== theme) {
+    if (!snapshot?.theme) return;
+    if (lastSyncedSnapshotThemeRef.current === snapshot.theme) return;
+
+    lastSyncedSnapshotThemeRef.current = snapshot.theme;
+    const currentAppliedTheme =
+      typeof document !== "undefined"
+        ? document.documentElement.getAttribute("data-theme")
+        : null;
+
+    if (snapshot.theme !== currentAppliedTheme) {
       setTheme(snapshot.theme);
     }
-  }, [setTheme, snapshot?.theme, theme]);
+  }, [setTheme, snapshot?.theme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(SETTINGS_ACTIVE_TAB_KEY, activeTab);
+  }, [activeTab]);
 
   const filteredEnvCatalog = useMemo(() => {
     const catalog = snapshot?.envOverrideCatalog || [];
@@ -152,9 +191,52 @@ export default function SettingsPage() {
       ""
     : "";
 
+  const lastIntentThemeRef = useRef<string | null>(null);
+
   const handleThemeChange = (nextTheme: string) => {
+    if (!snapshot || nextTheme === snapshot.theme) return;
+    const previousSnapshot = snapshot;
+    const previousTheme = snapshot.theme || "tech";
+
+    // 1. Immediately update local UI and intent lock
+    lastIntentThemeRef.current = nextTheme;
+    lastSyncedSnapshotThemeRef.current = nextTheme;
+    
+    setActiveTab("appearance");
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(SETTINGS_ACTIVE_TAB_KEY, "appearance");
+    }
+    
     setTheme(nextTheme);
-    updateSettings.mutate({ theme: nextTheme });
+
+    // 2. Optimistic local update
+    queryClient.setQueryData(["app-settings-snapshot"], {
+      ...snapshot,
+      theme: nextTheme,
+    });
+    setStoreSettings({ ...snapshot, theme: nextTheme });
+
+    // 3. Immediate persist to backend (No debounce)
+    updateSettings.mutate(
+      { theme: nextTheme, _silent: true },
+      {
+        onSuccess: (updatedSnapshot) => {
+          // Double check if this is still our intent
+          if (lastIntentThemeRef.current === nextTheme) {
+            queryClient.setQueryData(["app-settings-snapshot"], updatedSnapshot);
+            setStoreSettings(updatedSnapshot);
+          }
+        },
+        onError: () => {
+          // Only revert if no newer intent has been made
+          if (lastIntentThemeRef.current === nextTheme) {
+            queryClient.setQueryData(["app-settings-snapshot"], previousSnapshot);
+            setStoreSettings(previousSnapshot);
+            setTheme(previousTheme);
+          }
+        },
+      }
+    );
   };
 
   const updateBackgroundTasks = (patch: Partial<BackgroundTaskSettings>) => {
@@ -265,13 +347,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold tracking-tight">系统设置</h2>
         <p className="mt-1 text-sm text-muted-foreground">管理应用行为、网关策略及后台任务</p>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          if (value && SETTINGS_TABS.includes(value as SettingsTab)) {
+            setActiveTab(value as SettingsTab);
+          }
+        }}
+        className="w-full"
+      >
         <TabsList className="mb-6 flex h-11 w-full justify-start overflow-x-auto rounded-xl bg-muted/50 p-1 no-scrollbar lg:w-fit">
           <TabsTrigger value="general" className="gap-2 px-5 shrink-0">
             <SettingsIcon className="h-4 w-4" /> 通用
@@ -401,7 +491,13 @@ export default function SettingsPage() {
                   }
                 >
                   <SelectTrigger className="w-full md:w-[300px]">
-                    <SelectValue placeholder="选择策略" />
+                    <SelectValue placeholder="选择策略">
+                      {(value) => {
+                        const nextValue = String(value || "").trim();
+                        if (!nextValue) return "选择策略";
+                        return ROUTE_STRATEGY_LABELS[nextValue] || nextValue;
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ordered">顺序优先 (Ordered)</SelectItem>

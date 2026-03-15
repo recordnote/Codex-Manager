@@ -1,5 +1,6 @@
 use crate::app_storage::{
-    read_account_import_contents_from_directory, resolve_rpc_token_path_for_db,
+    read_account_import_contents_from_directory, read_account_import_contents_from_files,
+    resolve_rpc_token_path_for_db,
 };
 use crate::commands::settings::effective_lightweight_mode_on_close_to_tray;
 use crate::rpc_client::{normalize_addr, rpc_call, rpc_call_with_sockets};
@@ -155,6 +156,32 @@ fn read_account_import_contents_from_directory_collects_nested_json_files() {
     assert_eq!(contents.len(), 2);
     assert!(contents.iter().any(|item| item.contains(r#""id":"a""#)));
     assert!(contents.iter().any(|item| item.contains(r#""id":"b""#)));
+
+    fs::remove_dir_all(&root).expect("cleanup temp dir");
+}
+
+#[test]
+fn read_account_import_contents_from_files_collects_non_empty_contents() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("codexmanager-import-files-{unique}"));
+    fs::create_dir_all(&root).expect("create temp dir");
+
+    let first = root.join("a.json");
+    let second = root.join("b.txt");
+    let empty = root.join("empty.json");
+    fs::write(&first, r#"{"id":"a"}"#).expect("write a.json");
+    fs::write(&second, "refresh-token-value").expect("write b.txt");
+    fs::write(&empty, "   ").expect("write empty.json");
+
+    let contents = read_account_import_contents_from_files(&[first, second, empty])
+        .expect("read import files");
+
+    assert_eq!(contents.len(), 2);
+    assert!(contents.iter().any(|item| item.contains(r#""id":"a""#)));
+    assert!(contents.iter().any(|item| item == "refresh-token-value"));
 
     fs::remove_dir_all(&root).expect("cleanup temp dir");
 }

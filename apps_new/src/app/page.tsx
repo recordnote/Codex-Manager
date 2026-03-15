@@ -72,6 +72,14 @@ function PercentBar({ label, value, tone = "default" }: PercentBarProps) {
   );
 }
 
+function quotaTrackClass(tone: "green" | "blue") {
+  return tone === "blue" ? "bg-blue-500/20" : "bg-green-500/20";
+}
+
+function quotaIndicatorClass(tone: "green" | "blue") {
+  return tone === "blue" ? "bg-blue-500" : "bg-green-500";
+}
+
 function AccountHighlightCard({
   title,
   name,
@@ -202,14 +210,22 @@ export default function DashboardPage() {
                     <span className="text-muted-foreground">5小时内</span>
                     <span className="font-bold">{formatPercent(stats.poolRemain?.primary)}</span>
                   </div>
-                  <Progress value={poolPrimary} className="h-1.5 bg-primary/20" />
+                  <Progress
+                    value={poolPrimary}
+                    trackClassName={quotaTrackClass("green")}
+                    indicatorClassName={quotaIndicatorClass("green")}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="text-muted-foreground">7天内</span>
                     <span className="font-bold">{formatPercent(stats.poolRemain?.secondary)}</span>
                   </div>
-                  <Progress value={poolSecondary} className="h-1.5 bg-primary/20" />
+                  <Progress
+                    value={poolSecondary}
+                    trackClassName={quotaTrackClass("blue")}
+                    indicatorClassName={quotaIndicatorClass("blue")}
+                  />
                 </div>
               </CardContent>
             </Card>

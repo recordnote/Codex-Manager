@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search, Shield, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/modals/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,6 +123,15 @@ function resolveAccountDisplayName(
     }
   }
   return fallbackAccountDisplayFromKey(log.keyId);
+}
+
+function formatModelEffortDisplay(log: RequestLog): string {
+  const model = String(log.model || "").trim();
+  const effort = String(log.reasoningEffort || "").trim();
+  if (model && effort) {
+    return `${model}/${effort}`;
+  }
+  return model || effort || "-";
 }
 
 function AccountKeyInfoCell({
@@ -279,12 +289,41 @@ function ErrorInfoCell({ error }: { error: string }) {
   );
 }
 
+function ModelEffortCell({ log }: { log: RequestLog }) {
+  const model = String(log.model || "").trim();
+  const effort = String(log.reasoningEffort || "").trim();
+  const display = formatModelEffortDisplay(log);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<div />} className="block text-left">
+        <span className="block max-w-[120px] truncate font-medium text-foreground">
+          {display}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm">
+        <div className="flex min-w-[200px] flex-col gap-2">
+          <div className="space-y-0.5">
+            <div className="text-[10px] text-background/70">模型</div>
+            <div className="break-all font-mono text-[11]">{model || "-"}</div>
+          </div>
+          <div className="space-y-0.5">
+            <div className="text-[10px] text-background/70">推理</div>
+            <div className="break-all font-mono text-[11]">{effort || "-"}</div>
+          </div>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export default function LogsPage() {
   const searchParams = useSearchParams();
   const { serviceStatus } = useAppStore();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState(() => searchParams.get("query") || "");
   const [filter, setFilter] = useState<StatusFilter>("all");
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   const { data: accountsResult } = useQuery({
     queryKey: ["accounts", "lookup"],
@@ -350,16 +389,16 @@ export default function LogsPage() {
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-          <div className="flex rounded-lg border bg-muted/30 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-muted/30 p-1">
             {["all", "2xx", "4xx", "5xx"].map((item) => (
               <button
                 key={item}
                 onClick={() => setFilter(item as StatusFilter)}
                 className={cn(
-                  "rounded-md -3 py-1 text-[10px] font-bold transition-all",
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
                   filter === item
                     ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted",
+                    : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
                 )}
               >
                 {item.toUpperCase()}
@@ -382,7 +421,7 @@ export default function LogsPage() {
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => clearMutation.mutate()}
+            onClick={() => setClearConfirmOpen(true)}
             disabled={clearMutation.isPending}
           >
             <Trash2 className="mr-2 h-4 w-4" /> 清空日志
@@ -398,7 +437,7 @@ export default function LogsPage() {
                 <TableHead className="w-[150]">时间</TableHead>
                 <TableHead className="w-[120]">方法 / 路径</TableHead>
                 <TableHead className="w-[210]">账号 / 密钥</TableHead>
-                <TableHead className="w-[70]">模型</TableHead>
+                <TableHead className="w-[120]">模型 / 推理</TableHead>
                 <TableHead className="w-[70]">状态</TableHead>
                 <TableHead className="w-[80]">请求时长</TableHead>
                 <TableHead className="w-[110]">令牌</TableHead>
@@ -468,12 +507,7 @@ export default function LogsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className="bg-accent/30 text-[9] font-normal"
-                      >
-                        {log.model || "-"}
-                      </Badge>
+                      <ModelEffortCell log={log} />
                     </TableCell>
                     <TableCell>{getStatusBadge(log.statusCode)}</TableCell>
                     <TableCell className="font-mono text-primary">
@@ -500,6 +534,16 @@ export default function LogsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title="清空请求日志"
+        description="确定清空全部请求日志吗？该操作不可恢复。"
+        confirmText="清空"
+        confirmVariant="destructive"
+        onConfirm={() => clearMutation.mutate()}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiKeyModal } from "@/components/modals/api-key-modal";
+import { ConfirmDialog } from "@/components/modals/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +55,7 @@ export default function ApiKeysPage() {
   const [loadingSecretId, setLoadingSecretId] = useState<string | null>(null);
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
+  const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
 
   const editingApiKey = useMemo(
     () => apiKeys.find((item) => item.id === editingKeyId) || null,
@@ -130,10 +132,7 @@ export default function ApiKeysPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("确定删除这个平台密钥吗？")) {
-      return;
-    }
-    deleteApiKey(id);
+    setDeleteKeyId(id);
   };
 
   return (
@@ -312,6 +311,22 @@ export default function ApiKeysPage() {
         open={apiKeyModalOpen}
         onOpenChange={setApiKeyModalOpen}
         apiKey={editingApiKey}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteKeyId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteKeyId(null);
+          }
+        }}
+        title="删除平台密钥"
+        description={`确定删除平台密钥 ${apiKeys.find((item) => item.id === deleteKeyId)?.name || ""} 吗？删除后不可恢复。`}
+        confirmText="删除"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          if (!deleteKeyId) return;
+          deleteApiKey(deleteKeyId);
+        }}
       />
     </div>
   );

@@ -256,6 +256,27 @@ fn app_settings_set_persists_snapshot_and_password_hash() {
 }
 
 #[test]
+fn app_settings_set_preserves_dark_one_theme() {
+    with_temp_db(|_| {
+        let snapshot = codexmanager_service::app_settings_set(Some(&json!({
+            "theme": "dark-one"
+        })))
+        .expect("save dark-one theme");
+
+        assert_eq!(
+            snapshot.get("theme").and_then(|value| value.as_str()),
+            Some("dark-one")
+        );
+
+        let current = codexmanager_service::app_settings_get().expect("get app settings");
+        assert_eq!(
+            current.get("theme").and_then(|value| value.as_str()),
+            Some("dark-one")
+        );
+    });
+}
+
+#[test]
 fn sync_runtime_settings_from_storage_applies_saved_runtime_values() {
     with_temp_db(|db_path| {
         let storage = Storage::open(db_path).expect("open storage");

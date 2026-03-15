@@ -76,7 +76,7 @@ export const accountClient = {
   update: (accountId: string, sort: number) =>
     invoke("service_account_update", withAddr({ accountId, sort })),
   import: (contents: string[]) =>
-    invoke("service_account_import", withAddr({ contents })),
+    invoke<AccountImportResult>("service_account_import", withAddr({ contents })),
   async importByDirectory(): Promise<AccountImportResult> {
     const picked = await invoke<AccountImportResult>(
       "service_account_import_by_directory",
@@ -94,6 +94,25 @@ export const accountClient = {
       ...imported,
       canceled: false,
       directoryPath: picked.directoryPath || "",
+      fileCount: picked.fileCount || picked.contents.length,
+    };
+  },
+  async importByFile(): Promise<AccountImportResult> {
+    const picked = await invoke<AccountImportResult>(
+      "service_account_import_by_file",
+      withAddr()
+    );
+    if (picked?.canceled || !Array.isArray(picked?.contents) || picked.contents.length === 0) {
+      return picked;
+    }
+
+    const imported = await invoke<AccountImportResult>(
+      "service_account_import",
+      withAddr({ contents: picked.contents })
+    );
+    return {
+      ...imported,
+      canceled: false,
       fileCount: picked.fileCount || picked.contents.length,
     };
   },

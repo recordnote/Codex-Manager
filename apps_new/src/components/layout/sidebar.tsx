@@ -59,7 +59,7 @@ export function Sidebar() {
   return (
     <div
       className={cn(
-        "relative flex flex-col glass-sidebar transition-all duration-300 ease-in-out",
+        "relative flex flex-col glass-sidebar transition-[width] duration-300 ease-in-out",
         isSidebarOpen ? "w-64" : "w-16"
       )}
     >

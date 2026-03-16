@@ -460,6 +460,7 @@ pub(super) fn reload_from_env() {
     drop(cached_residency);
 
     refresh_upstream_clients_from_runtime_config();
+    let _ = RUNTIME_CONFIG_LOADED.set(());
 }
 
 const ENV_UPSTREAM_COOKIE: &str = "CODEXMANAGER_UPSTREAM_COOKIE";

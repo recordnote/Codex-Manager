@@ -2,10 +2,10 @@ use bytes::Bytes;
 use codexmanager_core::storage::{Account, Storage, Token};
 use reqwest::header::CONTENT_TYPE;
 use std::time::Instant;
-use tiny_http::Request;
 
 use super::fallback_branch::{handle_openai_fallback_branch, FallbackBranchResult};
 use super::primary_attempt::{run_primary_upstream_attempt, PrimaryAttemptResult};
+use super::transport::UpstreamRequestContext;
 
 pub(super) enum PrimaryFlowDecision {
     Continue {
@@ -34,7 +34,7 @@ pub(super) fn run_primary_upstream_flow<F>(
     client: &reqwest::blocking::Client,
     storage: &Storage,
     method: &reqwest::Method,
-    request: &Request,
+    request_ctx: UpstreamRequestContext<'_>,
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
@@ -85,7 +85,7 @@ where
         method,
         primary_url,
         request_deadline,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         is_stream,
@@ -114,7 +114,6 @@ where
         client,
         storage,
         method,
-        request,
         incoming_headers,
         body,
         is_stream,

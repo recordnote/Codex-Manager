@@ -178,8 +178,10 @@ pub(crate) fn login_with_chatgpt_auth_tokens(
         .insert_token(&token)
         .map_err(|err| err.to_string())?;
 
-    save_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY, Some(&account_id))?;
+    set_current_auth_account_id(Some(&account_id))?;
     let _ = crate::gateway::set_manual_preferred_account(&account_id);
+    crate::rpc_notifications::notify_account_login_completed(None, true, None);
+    crate::rpc_notifications::notify_account_updated();
 
     Ok(ChatgptAuthTokensLoginResponse {
         kind: "chatgptAuthTokens".to_string(),
@@ -281,7 +283,8 @@ pub(crate) fn logout_current_account() -> Result<serde_json::Value, String> {
                 .map_err(|err| format!("update account status failed: {err}"))?;
         }
     }
-    save_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY, None)?;
+    set_current_auth_account_id(None)?;
+    crate::rpc_notifications::notify_account_updated();
     Ok(serde_json::json!({
         "ok": true,
         "accountId": current_account_id,
@@ -304,6 +307,11 @@ pub(crate) fn cancel_login(login_id: &str) -> Result<serde_json::Value, String> 
     storage
         .update_login_session_status(login_id, "cancelled", None)
         .map_err(|err| err.to_string())?;
+    crate::rpc_notifications::notify_account_login_completed(
+        Some(login_id),
+        false,
+        Some("cancelled"),
+    );
     Ok(serde_json::json!({}))
 }
 
@@ -466,4 +474,46 @@ fn normalize_plan_type(value: String) -> Option<String> {
         "" => None,
         _ => Some("unknown".to_string()),
     }
+}
+
+pub(crate) fn current_auth_account_id() -> Option<String> {
+    get_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY)
+}
+
+pub(crate) fn set_current_auth_account_id(account_id: Option<&str>) -> Result<(), String> {
+    save_persisted_app_setting(CURRENT_AUTH_ACCOUNT_ID_KEY, account_id)
+}
+
+pub(crate) fn account_updated_notification_payload() -> serde_json::Value {
+    let Some(storage) = open_storage() else {
+        return serde_json::json!({
+            "authMode": serde_json::Value::Null,
+            "planType": serde_json::Value::Null,
+        });
+    };
+    let Some((account, token)) = resolve_current_account_with_token(&storage).ok().flatten() else {
+        return serde_json::json!({
+            "authMode": serde_json::Value::Null,
+            "planType": serde_json::Value::Null,
+        });
+    };
+    serde_json::json!({
+        "authMode": "chatgpt",
+        "planType": resolve_plan_type(&token, None),
+        "accountId": account.id,
+    })
+}
+
+pub(crate) fn current_rate_limits_notification_payload_for_account(
+    account_id: &str,
+) -> Option<serde_json::Value> {
+    let current_account_id = current_auth_account_id()?;
+    if current_account_id != account_id {
+        return None;
+    }
+    let rate_limits = read_current_rate_limits().ok()?;
+    Some(serde_json::json!({
+        "rateLimits": rate_limits.rate_limits,
+        "rateLimitsByLimitId": rate_limits.rate_limits_by_limit_id,
+    }))
 }

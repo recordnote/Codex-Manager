@@ -4,7 +4,6 @@ use reqwest::blocking::Client;
 use reqwest::Method;
 use serde_json::Value;
 use std::time::Instant;
-use tiny_http::Request;
 
 fn should_force_connection_close(target_url: &str) -> bool {
     reqwest::Url::parse(target_url)
@@ -76,7 +75,6 @@ pub(super) fn try_openai_fallback(
     storage: &Storage,
     method: &Method,
     request_path: &str,
-    _request: &Request,
     incoming_headers: &super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,

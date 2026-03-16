@@ -171,6 +171,20 @@ pub(super) fn try_handle(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
             super::value_or_error(external_agent_config_detect(req.params.as_ref()))
         }
         "externalAgentConfig/import" => serde_json::json!({}),
+        "thread/start"
+        | "thread/resume"
+        | "thread/fork"
+        | "thread/read"
+        | "thread/name/set"
+        | "thread/realtime/start"
+        | "thread/realtime/appendAudio"
+        | "thread/realtime/appendText"
+        | "thread/realtime/stop"
+        | "turn/start"
+        | "turn/steer"
+        | "turn/interrupt" => {
+            super::value_or_error(lifecycle_method_unavailable(req.method.as_str()))
+        }
         "review/start" => super::value_or_error(review_start(req.params.as_ref())),
         _ => return None,
     };
@@ -407,6 +421,12 @@ fn review_start(params: Option<&Value>) -> Result<Value, String> {
     Err(format!(
         "review/start is not available until thread/turn lifecycle is implemented: {}",
         params.thread_id
+    ))
+}
+
+fn lifecycle_method_unavailable(method: &str) -> Result<Value, String> {
+    Err(format!(
+        "{method} is not available until thread/turn runtime workflow is implemented"
     ))
 }
 
@@ -1117,6 +1137,7 @@ fn skills_config_write(params: Option<&Value>) -> Result<Value, String> {
     let mut overrides = load_skill_enabled_overrides();
     overrides.insert(skill_path, params.enabled);
     save_skill_enabled_overrides(&overrides)?;
+    crate::rpc_notifications::notify_skills_changed();
     Ok(serde_json::json!({
         "effectiveEnabled": params.enabled
     }))

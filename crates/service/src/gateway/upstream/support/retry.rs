@@ -2,9 +2,9 @@ use bytes::Bytes;
 use codexmanager_core::storage::Account;
 use reqwest::StatusCode;
 use std::time::{Duration, Instant};
-use tiny_http::Request;
 
 use super::super::attempt_flow::transport::send_upstream_request;
+use super::super::attempt_flow::transport::UpstreamRequestContext;
 
 pub(in super::super) enum AltPathRetryResult {
     NotTriggered,
@@ -19,7 +19,7 @@ pub(in super::super) fn retry_with_alternate_path<F>(
     method: &reqwest::Method,
     alt_url: Option<&str>,
     request_deadline: Option<Instant>,
-    request: &Request,
+    request_ctx: UpstreamRequestContext<'_>,
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
@@ -44,7 +44,7 @@ where
     if debug {
         log::warn!(
             "event=gateway_upstream_alt_retry path={} status={} account_id={} upstream_url={}",
-            request.url(),
+            request_ctx.request_path,
             status.as_u16(),
             account.id,
             alt_url
@@ -72,7 +72,7 @@ where
         method,
         alt_url,
         request_deadline,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         is_stream,

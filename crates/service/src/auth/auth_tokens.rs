@@ -166,6 +166,7 @@ pub(crate) fn complete_login_with_redirect(
     )
     .map_err(|e| {
         let _ = storage.update_login_session_status(state, "failed", Some(&e));
+        crate::rpc_notifications::notify_account_login_completed(Some(state), false, Some(&e));
         e
     })?;
 
@@ -173,6 +174,7 @@ pub(crate) fn complete_login_with_redirect(
     let api_key_access_token = obtain_api_key(&issuer, &client_id, &tokens.id_token).ok();
     let claims = parse_id_token_claims(&tokens.id_token).map_err(|e| {
         let _ = storage.update_login_session_status(state, "failed", Some(&e));
+        crate::rpc_notifications::notify_account_login_completed(Some(state), false, Some(&e));
         e
     })?;
 
@@ -257,6 +259,9 @@ pub(crate) fn complete_login_with_redirect(
     storage
         .update_login_session_status(state, "success", None)
         .map_err(|e| e.to_string())?;
+    crate::auth_account::set_current_auth_account_id(Some(&account_key))?;
+    crate::rpc_notifications::notify_account_login_completed(Some(state), true, None);
+    crate::rpc_notifications::notify_account_updated();
     Ok(())
 }
 

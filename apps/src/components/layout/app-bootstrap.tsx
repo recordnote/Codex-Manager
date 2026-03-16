@@ -28,6 +28,8 @@ const PRIMARY_PAGE_WARMUP_STALE_TIME = 30_000;
 const PRIMARY_PAGE_WARMUP_PAGE_SIZE = 20;
 const PRIMARY_PAGE_ROUTES = ["/", "/accounts", "/apikeys", "/logs", "/settings"] as const;
 const DEV_ROUTE_WARMUP_TIMEOUT_MS = 12_000;
+const STARTUP_WARMUP_LABEL = "[startup warmup]";
+const BOOTSTRAP_RECOVERY_RETRY_MS = 1_200;
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 export function AppBootstrap({ children }: { children: React.ReactNode }) {
@@ -38,6 +40,8 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const hasInitializedOnce = useRef(false);
   const hasWarmedDevRoutes = useRef(false);
+  const recoveryTimerRef = useRef<number | null>(null);
+  const retryInitRef = useRef<(() => Promise<void>) | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const applyLowTransparency = (enabled: boolean) => {
@@ -53,7 +57,7 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
 
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {
-        const initializeResult = await serviceClient.initialize();
+        const initializeResult = await serviceClient.initialize(addr);
         if (!isExpectedInitializeResult(initializeResult)) {
           throw new Error("Port is in use or unexpected service responded (missing server_name)");
         }
@@ -176,6 +180,66 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
     [queryClient, router]
   );
 
+  const warmupConnectedService = useCallback(
+    async (addr: string) => {
+      try {
+        await prefetchStartupSnapshot(addr);
+      } catch (warmupError) {
+        console.warn(
+          `${STARTUP_WARMUP_LABEL} startup snapshot prefetch failed`,
+          warmupError,
+        );
+      }
+
+      try {
+        await warmupPrimaryPages(addr);
+      } catch (warmupError) {
+        console.warn(
+          `${STARTUP_WARMUP_LABEL} primary page warmup failed`,
+          warmupError,
+        );
+      }
+    },
+    [prefetchStartupSnapshot, warmupPrimaryPages],
+  );
+
+  const applyConnectedServiceState = useCallback(
+    (addr: string, version: string, lowTransparency: boolean) => {
+      if (recoveryTimerRef.current !== null) {
+        window.clearTimeout(recoveryTimerRef.current);
+        recoveryTimerRef.current = null;
+      }
+      setServiceStatus({
+        addr,
+        connected: true,
+        version,
+      });
+      applyLowTransparency(lowTransparency);
+      setIsInitializing(false);
+      hasInitializedOnce.current = true;
+      void warmupConnectedService(addr);
+    },
+    [setServiceStatus, warmupConnectedService],
+  );
+
+  const scheduleBootstrapRecovery = useCallback(() => {
+    if (typeof window === "undefined" || recoveryTimerRef.current !== null) {
+      return;
+    }
+    recoveryTimerRef.current = window.setTimeout(() => {
+      recoveryTimerRef.current = null;
+      void retryInitRef.current?.();
+    }, BOOTSTRAP_RECOVERY_RETRY_MS);
+  }, []);
+
+  const tryRecoverServiceAfterFailure = useCallback(
+    async (addr: string, lowTransparency: boolean) => {
+      const recovered = await initializeService(addr, 6);
+      applyConnectedServiceState(addr, recovered.version, lowTransparency);
+    },
+    [applyConnectedServiceState, initializeService],
+  );
+
   const warmupDevRouteTransitions = useCallback(() => {
     if (process.env.NODE_ENV !== "development") {
       return () => {};
@@ -294,19 +358,20 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
         } catch {
           initializeResult = await startAndInitializeService(addr);
         }
-        setServiceStatus({
+        applyConnectedServiceState(
           addr,
-          connected: true,
-          version: initializeResult.version,
-        });
-        await prefetchStartupSnapshot(addr);
-        await warmupPrimaryPages(addr);
-        setIsInitializing(false);
-        hasInitializedOnce.current = true;
+          initializeResult.version,
+          settings.lowTransparency,
+        );
       } catch (serviceError: unknown) {
+        try {
+          await tryRecoverServiceAfterFailure(addr, settings.lowTransparency);
+          return;
+        } catch {}
         if (!hasInitializedOnce.current) {
            setServiceStatus({ addr, connected: false, version: "" });
            setError(formatServiceError(serviceError));
+           scheduleBootstrapRecovery();
         }
         setIsInitializing(false);
       }
@@ -319,13 +384,14 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
     // We remove serviceStatus from dependencies to avoid infinite loop
     // and use hasInitializedOnce ref for stability
   }, [
+    applyConnectedServiceState,
     initializeService,
-    prefetchStartupSnapshot,
-    warmupPrimaryPages,
+    scheduleBootstrapRecovery,
     setAppSettings,
     setServiceStatus,
     setTheme,
     startAndInitializeService,
+    tryRecoverServiceAfterFailure,
   ]);
 
   const handleForceStart = async () => {
@@ -342,26 +408,42 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
       
       setAppSettings(settings);
       const initializeResult = await startAndInitializeService(addr);
-      setServiceStatus({
+      applyConnectedServiceState(
         addr,
-        connected: true,
-        version: initializeResult.version,
-      });
-      await prefetchStartupSnapshot(addr);
-      await warmupPrimaryPages(addr);
-      applyLowTransparency(settings.lowTransparency);
-      setIsInitializing(false);
+        initializeResult.version,
+        settings.lowTransparency,
+      );
       toast.success("服务已启动");
     } catch (startError: unknown) {
+      try {
+        const addr = normalizeServiceAddr(serviceStatus.addr || DEFAULT_SERVICE_ADDR);
+        const settings = await appClient.getSettings();
+        await tryRecoverServiceAfterFailure(addr, settings.lowTransparency);
+        toast.success("服务已启动");
+        return;
+      } catch {}
       setServiceStatus({ connected: false, version: "" });
       setError(formatServiceError(startError));
+      scheduleBootstrapRecovery();
       setIsInitializing(false);
     }
   };
 
   useEffect(() => {
+    retryInitRef.current = init;
+  }, [init]);
+
+  useEffect(() => {
     void init();
   }, [init]);
+
+  useEffect(() => {
+    return () => {
+      if (recoveryTimerRef.current !== null) {
+        window.clearTimeout(recoveryTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => warmupDevRouteTransitions(), [warmupDevRouteTransitions]);
 

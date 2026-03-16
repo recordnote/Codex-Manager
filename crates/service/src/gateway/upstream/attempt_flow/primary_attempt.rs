@@ -3,6 +3,7 @@ use codexmanager_core::storage::Account;
 use std::time::Instant;
 
 use super::super::support::deadline;
+use super::transport::UpstreamRequestContext;
 
 pub(super) enum PrimaryAttemptResult {
     Upstream(reqwest::blocking::Response),
@@ -16,7 +17,7 @@ pub(super) fn run_primary_upstream_attempt<F>(
     method: &reqwest::Method,
     url: &str,
     request_deadline: Option<Instant>,
-    request: &tiny_http::Request,
+    request_ctx: UpstreamRequestContext<'_>,
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
@@ -42,7 +43,7 @@ where
         method,
         url,
         request_deadline,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         is_stream,

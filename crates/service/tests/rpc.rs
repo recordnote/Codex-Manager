@@ -277,8 +277,70 @@ fn rpc_initialize_roundtrip() {
 }
 
 #[test]
+fn rpc_initialized_notification_without_id_unlocks_connection_scoped_methods() {
+    let _ctx = RpcTestContext::new("rpc-initialized-notification");
+    let connection_id = "rpc-conn-integration";
+    let token = codexmanager_service::rpc_auth_token().to_string();
+    let headers = [
+        ("Content-Type", "application/json"),
+        ("X-CodexManager-Rpc-Token", token.as_str()),
+        ("X-CodexManager-Rpc-Connection-Id", connection_id),
+    ];
+
+    let initialize_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let initialize_request = serde_json::to_string(&JsonRpcRequest {
+        id: 201,
+        method: "initialize".to_string(),
+        params: Some(serde_json::json!({
+            "clientInfo": {
+                "name": "codex_cli",
+                "version": "0.1.0"
+            }
+        })),
+    })
+    .expect("serialize initialize");
+    let (initialize_status, initialize_body) =
+        post_rpc_raw(&initialize_server.addr, &initialize_request, &headers);
+    assert_eq!(
+        initialize_status, 200,
+        "unexpected initialize status {initialize_status}: {initialize_body}"
+    );
+
+    let initialized_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let (initialized_status, initialized_body) = post_rpc_raw(
+        &initialized_server.addr,
+        r#"{"method":"initialized"}"#,
+        &headers,
+    );
+    assert_eq!(
+        initialized_status, 200,
+        "unexpected initialized status {initialized_status}: {initialized_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&initialized_body).expect("parse initialized response"),
+        serde_json::json!({})
+    );
+
+    let skills_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let skills_request = serde_json::to_string(&JsonRpcRequest {
+        id: 202,
+        method: "skills/list".to_string(),
+        params: Some(serde_json::json!({ "cwds": [] })),
+    })
+    .expect("serialize skills list");
+    let (skills_status, skills_body) = post_rpc_raw(&skills_server.addr, &skills_request, &headers);
+    assert_eq!(
+        skills_status, 200,
+        "unexpected skills/list status {skills_status}: {skills_body}"
+    );
+    let skills_response = serde_json::from_str::<Value>(&skills_body).expect("parse skills/list");
+    assert!(skills_response["result"]["data"].is_array());
+}
+
+#[test]
 fn rpc_codex_compat_list_methods_return_stable_shapes() {
     let _ctx = RpcTestContext::new("rpc-codex-compat");
+    codexmanager_service::clear_thread_turn_for_tests();
     let initialized_server = codexmanager_service::start_one_shot_server().expect("start server");
     let initialized = post_rpc(
         &initialized_server.addr,
@@ -540,6 +602,213 @@ fn rpc_codex_compat_list_methods_return_stable_shapes() {
     assert!(review_start["result"]["error"]
         .as_str()
         .is_some_and(|value| value.contains("review/start is not available")));
+
+    let thread_start_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let thread_start = post_rpc(
+        &thread_start_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 118,
+            method: "thread/start".to_string(),
+            params: Some(serde_json::json!({
+                "model": "gpt-5.4",
+                "cwd": "D:/tmp/project"
+            })),
+        })
+        .expect("serialize thread/start"),
+    );
+    let thread_id = thread_start["result"]["thread"]["id"]
+        .as_str()
+        .expect("thread id")
+        .to_string();
+    assert_eq!(thread_start["result"]["model"], "gpt-5.4");
+    assert_eq!(thread_start["result"]["modelProvider"], "openai");
+    assert_eq!(thread_start["result"]["approvalPolicy"], "unlessTrusted");
+    assert_eq!(
+        thread_start["result"]["sandbox"],
+        serde_json::json!({ "type": "dangerFullAccess" })
+    );
+
+    let thread_read_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let thread_read = post_rpc(
+        &thread_read_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 119,
+            method: "thread/read".to_string(),
+            params: Some(serde_json::json!({
+                "threadId": thread_id,
+                "includeTurns": false
+            })),
+        })
+        .expect("serialize thread/read"),
+    );
+    assert!(thread_read["result"]["thread"]["turns"]
+        .as_array()
+        .is_some_and(|turns| turns.is_empty()));
+
+    let thread_name_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let thread_name = post_rpc(
+        &thread_name_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 120,
+            method: "thread/name/set".to_string(),
+            params: Some(serde_json::json!({
+                "threadId": thread_id,
+                "name": "compat-thread"
+            })),
+        })
+        .expect("serialize thread/name/set"),
+    );
+    assert_eq!(thread_name["result"], serde_json::json!({}));
+
+    let turn_start_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let turn_start = post_rpc(
+        &turn_start_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 121,
+            method: "turn/start".to_string(),
+            params: Some(serde_json::json!({
+                "threadId": thread_id,
+                "input": [{ "type": "text", "text": "hello", "textElements": [] }]
+            })),
+        })
+        .expect("serialize turn/start"),
+    );
+    let turn_id = turn_start["result"]["turn"]["id"]
+        .as_str()
+        .expect("turn id")
+        .to_string();
+    assert_eq!(turn_start["result"]["turn"]["status"], "inProgress");
+    assert!(turn_start["result"]["turn"]["items"]
+        .as_array()
+        .is_some_and(|items| items.is_empty()));
+
+    let turn_interrupt_server =
+        codexmanager_service::start_one_shot_server().expect("start server");
+    let turn_interrupt = post_rpc(
+        &turn_interrupt_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 122,
+            method: "turn/interrupt".to_string(),
+            params: Some(serde_json::json!({
+                "threadId": thread_id,
+                "turnId": turn_id
+            })),
+        })
+        .expect("serialize turn/interrupt"),
+    );
+    let interrupt_result = turn_interrupt.get("result").expect("turn interrupt result");
+    assert!(
+        interrupt_result == &serde_json::json!({})
+            || interrupt_result["error"]
+                .as_str()
+                .is_some_and(|value| value.contains("turn is not active")),
+        "unexpected turn interrupt result: {interrupt_result}"
+    );
+
+    let turn_steer_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let turn_steer = post_rpc(
+        &turn_steer_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 123,
+            method: "turn/steer".to_string(),
+            params: Some(serde_json::json!({
+                "threadId": thread_id,
+                "expectedTurnId": turn_id,
+                "input": [{ "type": "text", "text": "late", "textElements": [] }]
+            })),
+        })
+        .expect("serialize turn/steer"),
+    );
+    assert!(turn_steer["result"]["error"]
+        .as_str()
+        .is_some_and(|value| value.contains("expectedTurnId") || value.contains("not active")));
+
+    for (id, method) in [
+        (125_u64, "thread/realtime/start"),
+        (126_u64, "thread/realtime/appendAudio"),
+        (127_u64, "thread/realtime/appendText"),
+        (128_u64, "thread/realtime/stop"),
+    ] {
+        let server = codexmanager_service::start_one_shot_server().expect("start server");
+        let response = post_rpc(
+            &server.addr,
+            &serde_json::to_string(&JsonRpcRequest {
+                id,
+                method: method.to_string(),
+                params: Some(serde_json::json!({})),
+            })
+            .expect("serialize lifecycle compat method"),
+        );
+        assert!(
+            response["result"]["error"]
+                .as_str()
+                .is_some_and(|value| value.contains(method) && value.contains("not available")),
+            "unexpected lifecycle compat response for {method}: {response}"
+        );
+    }
+
+    codexmanager_service::clear_thread_turn_for_tests();
+}
+
+#[test]
+fn rpc_thread_compact_start_returns_empty_and_records_context_compaction_turn() {
+    let _ctx = RpcTestContext::new("rpc-thread-compact-start");
+    codexmanager_service::clear_thread_turn_for_tests();
+
+    let thread_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let thread_response = post_rpc(
+        &thread_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 129,
+            method: "thread/start".to_string(),
+            params: Some(serde_json::json!({})),
+        })
+        .expect("serialize thread/start"),
+    );
+    let thread_id = thread_response["result"]["thread"]["id"]
+        .as_str()
+        .expect("thread id")
+        .to_string();
+
+    let compact_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let compact_response = post_rpc(
+        &compact_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 130,
+            method: "thread/compact/start".to_string(),
+            params: Some(serde_json::json!({
+                "threadId": thread_id,
+            })),
+        })
+        .expect("serialize thread/compact/start"),
+    );
+    assert_eq!(compact_response["result"], serde_json::json!({}));
+
+    std::thread::sleep(std::time::Duration::from_millis(150));
+
+    let read_server = codexmanager_service::start_one_shot_server().expect("start server");
+    let read_response = post_rpc(
+        &read_server.addr,
+        &serde_json::to_string(&JsonRpcRequest {
+            id: 131,
+            method: "thread/read".to_string(),
+            params: Some(serde_json::json!({
+                "threadId": thread_response["result"]["thread"]["id"].clone(),
+                "includeTurns": true,
+            })),
+        })
+        .expect("serialize thread/read"),
+    );
+    let turns = read_response["result"]["thread"]["turns"]
+        .as_array()
+        .expect("thread turns");
+    assert_eq!(turns.len(), 1);
+    assert_eq!(turns[0]["status"].as_str(), Some("completed"));
+    let items = turns[0]["items"].as_array().expect("turn items");
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["type"].as_str(), Some("contextCompaction"));
+
+    codexmanager_service::clear_thread_turn_for_tests();
 }
 
 #[test]

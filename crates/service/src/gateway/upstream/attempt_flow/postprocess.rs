@@ -1,7 +1,6 @@
 use bytes::Bytes;
 use codexmanager_core::storage::{Account, Storage, Token};
 use std::time::Instant;
-use tiny_http::Request;
 
 use crate::account_status::mark_account_inactive_for_refresh_token_error;
 
@@ -9,6 +8,7 @@ use super::super::support::outcome::{decide_upstream_outcome, UpstreamOutcomeDec
 use super::super::support::retry::{retry_with_alternate_path, AltPathRetryResult};
 use super::fallback_branch::{handle_openai_fallback_branch, FallbackBranchResult};
 use super::stateless_retry::{retry_stateless_then_optional_alt, StatelessRetryResult};
+use super::transport::UpstreamRequestContext;
 
 fn try_refresh_chatgpt_access_token(
     storage: &Storage,
@@ -57,7 +57,7 @@ pub(super) fn process_upstream_post_retry_flow<F>(
     url: &str,
     url_alt: Option<&str>,
     request_deadline: Option<Instant>,
-    request: &Request,
+    request_ctx: UpstreamRequestContext<'_>,
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
@@ -107,7 +107,7 @@ where
                         method,
                         url,
                         request_deadline,
-                        request,
+                        request_ctx,
                         incoming_headers,
                         body,
                         is_stream,
@@ -153,7 +153,7 @@ where
                 method,
                 Some(alt_url),
                 request_deadline,
-                request,
+                request_ctx,
                 incoming_headers,
                 body,
                 is_stream,
@@ -191,7 +191,7 @@ where
             url,
             url_alt,
             request_deadline,
-            request,
+            request_ctx,
             incoming_headers,
             body,
             is_stream,
@@ -225,7 +225,6 @@ where
         client,
         storage,
         method,
-        request,
         incoming_headers,
         body,
         is_stream,

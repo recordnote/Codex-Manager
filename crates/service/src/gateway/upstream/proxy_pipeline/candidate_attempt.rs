@@ -1,48 +1,48 @@
 use bytes::Bytes;
 use codexmanager_core::storage::{Account, Storage, Token};
 use std::time::Instant;
-use tiny_http::Request;
 
 use super::super::attempt_flow::candidate_flow::{
     process_candidate_upstream_flow, CandidateUpstreamDecision,
 };
+use super::super::attempt_flow::transport::UpstreamRequestContext;
 use super::execution_context::GatewayUpstreamExecutionContext;
 use super::request_setup::UpstreamRequestSetup;
 
 #[derive(Default)]
-pub(super) struct CandidateAttemptTrace {
-    pub(super) last_attempt_url: Option<String>,
-    pub(super) last_attempt_error: Option<String>,
+pub(in super::super) struct CandidateAttemptTrace {
+    pub(in super::super) last_attempt_url: Option<String>,
+    pub(in super::super) last_attempt_error: Option<String>,
 }
 
-pub(super) struct CandidateAttemptParams<'a> {
-    pub(super) storage: &'a Storage,
-    pub(super) method: &'a reqwest::Method,
-    pub(super) request: &'a Request,
-    pub(super) incoming_headers: &'a super::super::super::IncomingHeaderSnapshot,
-    pub(super) body: &'a Bytes,
-    pub(super) upstream_is_stream: bool,
-    pub(super) path: &'a str,
-    pub(super) request_deadline: Option<Instant>,
-    pub(super) account: &'a Account,
-    pub(super) token: &'a mut Token,
-    pub(super) strip_session_affinity: bool,
-    pub(super) debug: bool,
-    pub(super) allow_openai_fallback: bool,
-    pub(super) disable_challenge_stateless_retry: bool,
-    pub(super) has_more_candidates: bool,
-    pub(super) context: &'a GatewayUpstreamExecutionContext<'a>,
-    pub(super) setup: &'a UpstreamRequestSetup,
-    pub(super) trace: &'a mut CandidateAttemptTrace,
+pub(in super::super) struct CandidateAttemptParams<'a> {
+    pub(in super::super) storage: &'a Storage,
+    pub(in super::super) method: &'a reqwest::Method,
+    pub(in super::super) request_ctx: UpstreamRequestContext<'a>,
+    pub(in super::super) incoming_headers: &'a super::super::super::IncomingHeaderSnapshot,
+    pub(in super::super) body: &'a Bytes,
+    pub(in super::super) upstream_is_stream: bool,
+    pub(in super::super) path: &'a str,
+    pub(in super::super) request_deadline: Option<Instant>,
+    pub(in super::super) account: &'a Account,
+    pub(in super::super) token: &'a mut Token,
+    pub(in super::super) strip_session_affinity: bool,
+    pub(in super::super) debug: bool,
+    pub(in super::super) allow_openai_fallback: bool,
+    pub(in super::super) disable_challenge_stateless_retry: bool,
+    pub(in super::super) has_more_candidates: bool,
+    pub(in super::super) context: &'a GatewayUpstreamExecutionContext<'a>,
+    pub(in super::super) setup: &'a UpstreamRequestSetup,
+    pub(in super::super) trace: &'a mut CandidateAttemptTrace,
 }
 
-pub(super) fn run_candidate_attempt(
+pub(in super::super) fn run_candidate_attempt(
     params: CandidateAttemptParams<'_>,
 ) -> CandidateUpstreamDecision {
     let CandidateAttemptParams {
         storage,
         method,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         upstream_is_stream,
@@ -63,7 +63,7 @@ pub(super) fn run_candidate_attempt(
     process_candidate_upstream_flow(
         storage,
         method,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         upstream_is_stream,

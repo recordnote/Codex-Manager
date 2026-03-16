@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use codexmanager_core::storage::Account;
+use std::net::SocketAddr;
 use std::time::Instant;
 use tiny_http::Request;
 
@@ -7,6 +8,21 @@ use tiny_http::Request;
 enum RequestCompression {
     None,
     Zstd,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(in super::super) struct UpstreamRequestContext<'a> {
+    pub(in super::super) request_path: &'a str,
+    pub(in super::super) remote_addr: Option<SocketAddr>,
+}
+
+impl<'a> UpstreamRequestContext<'a> {
+    pub(in super::super) fn from_request(request: &'a Request) -> Self {
+        Self {
+            request_path: request.url(),
+            remote_addr: request.remote_addr().copied(),
+        }
+    }
 }
 
 fn should_force_connection_close(target_url: &str) -> bool {
@@ -139,7 +155,7 @@ pub(in super::super) fn send_upstream_request(
     method: &reqwest::Method,
     target_url: &str,
     request_deadline: Option<Instant>,
-    request: &Request,
+    request_ctx: UpstreamRequestContext<'_>,
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
@@ -163,7 +179,7 @@ pub(in super::super) fn send_upstream_request(
         incoming_session_id = None;
         incoming_conversation_id = None;
     }
-    let remote = request.remote_addr();
+    let remote = request_ctx.remote_addr.as_ref();
     let mut derived_session_id = if !strip_session_affinity && incoming_session_id.is_none() {
         super::super::header_profile::derive_sticky_session_id_from_headers_with_remote(
             incoming_headers,
@@ -196,7 +212,7 @@ pub(in super::super) fn send_upstream_request(
         .or_else(|| account.workspace_id.as_deref());
     let include_account_id =
         !compact_headers_mode && !super::super::super::is_openai_api_base(target_url);
-    let mut upstream_headers = if is_compact_request_path(request.url()) {
+    let mut upstream_headers = if is_compact_request_path(request_ctx.request_path) {
         let header_input = super::super::header_profile::CodexCompactUpstreamHeaderInput {
             auth_token,
             account_id,
@@ -236,9 +252,10 @@ pub(in super::super) fn send_upstream_request(
         // 对 localhost/127.0.0.1 强制 close，避免请求落到已失效连接。
         force_connection_close(&mut upstream_headers);
     }
-    let request_compression = resolve_request_compression(target_url, request.url(), is_stream);
+    let request_compression =
+        resolve_request_compression(target_url, request_ctx.request_path, is_stream);
     let body_for_request = encode_request_body(
-        request.url(),
+        request_ctx.request_path,
         body,
         request_compression,
         &mut upstream_headers,

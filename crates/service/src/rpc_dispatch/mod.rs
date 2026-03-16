@@ -15,6 +15,7 @@ mod gateway;
 mod requestlog;
 mod service_config;
 mod startup;
+mod thread_turn;
 mod usage;
 
 const RPC_CONNECTION_SESSION_TTL_SECS: i64 = 30 * 60;
@@ -71,8 +72,16 @@ fn rpc_connection_sessions() -> &'static RwLock<BTreeMap<String, RpcConnectionSe
 }
 
 #[cfg(test)]
-fn clear_connection_sessions() {
+pub(crate) fn clear_connection_sessions_for_tests() {
     crate::lock_utils::write_recover(rpc_connection_sessions(), "rpc_connection_sessions").clear();
+}
+
+pub(crate) fn remove_connection_session(connection_id: &str) {
+    if connection_id.trim().is_empty() {
+        return;
+    }
+    crate::lock_utils::write_recover(rpc_connection_sessions(), "rpc_connection_sessions")
+        .remove(connection_id);
 }
 
 pub(super) fn response(req: &JsonRpcRequest, result: Value) -> JsonRpcResponse {
@@ -221,6 +230,21 @@ fn ensure_connection_ready(connection_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub(crate) fn connection_accepts_notification(connection_id: &str, method: &str) -> bool {
+    let connection_id = connection_id.trim();
+    let method = method.trim();
+    if connection_id.is_empty() || method.is_empty() {
+        return false;
+    }
+    let sessions =
+        crate::lock_utils::read_recover(rpc_connection_sessions(), "rpc_connection_sessions");
+    let Some(session) = sessions.get(connection_id) else {
+        return false;
+    };
+    session.phase == RpcConnectionPhase::Ready
+        && !session.opt_out_notification_methods.contains(method)
+}
+
 fn enforce_connection_handshake(
     req: &JsonRpcRequest,
     ctx: &RpcRequestContext,
@@ -265,6 +289,10 @@ pub(crate) fn handle_request_with_context(
         };
         return response(&req, as_json(result));
     }
+    if let Some(resp) = thread_turn::try_handle(&req, ctx) {
+        return resp;
+    }
+
     if let Some(resp) = codex_compat::try_handle(&req) {
         return resp;
     }
@@ -300,6 +328,20 @@ pub(crate) fn handle_request_with_context(
     )
 }
 
+pub(crate) fn handle_notification_with_context(
+    method: &str,
+    _params: Option<Value>,
+    ctx: &RpcRequestContext,
+) -> Result<(), String> {
+    let Some(connection_id) = ctx.connection_id.as_deref() else {
+        return Err("connectionId is required".to_string());
+    };
+    match method {
+        "initialized" => mark_connection_initialized(connection_id),
+        _ => Err(format!("unsupported notification method: {method}")),
+    }
+}
+
 #[allow(dead_code)]
 pub(crate) fn handle_request(req: JsonRpcRequest) -> JsonRpcResponse {
     handle_request_with_context(req, &RpcRequestContext::default())
@@ -319,7 +361,7 @@ mod tests {
 
     #[test]
     fn connection_session_requires_initialize_then_initialized() {
-        clear_connection_sessions();
+        clear_connection_sessions_for_tests();
         let ctx = RpcRequestContext {
             connection_id: Some("rpc-session-test".to_string()),
         };
@@ -338,19 +380,19 @@ mod tests {
         let resp = enforce_connection_handshake(&req(6, "initialize"), &ctx).expect("repeat");
         assert_eq!(resp.result["error"], "Already initialized");
 
-        clear_connection_sessions();
+        clear_connection_sessions_for_tests();
     }
 
     #[test]
     fn missing_connection_id_skips_handshake_gate() {
-        clear_connection_sessions();
+        clear_connection_sessions_for_tests();
         let ctx = RpcRequestContext::default();
         assert!(enforce_connection_handshake(&req(7, "skills/list"), &ctx).is_none());
     }
 
     #[test]
     fn initialize_session_persists_client_info_and_notification_preferences() {
-        clear_connection_sessions();
+        clear_connection_sessions_for_tests();
         let ctx = RpcRequestContext {
             connection_id: Some("rpc-session-metadata".to_string()),
         };
@@ -395,6 +437,21 @@ mod tests {
             .contains("account/updated"));
 
         drop(sessions);
-        clear_connection_sessions();
+        clear_connection_sessions_for_tests();
+    }
+
+    #[test]
+    fn initialized_notification_marks_connection_ready() {
+        clear_connection_sessions_for_tests();
+        let ctx = RpcRequestContext {
+            connection_id: Some("rpc-session-initialized".to_string()),
+        };
+        assert!(enforce_connection_handshake(&req(9, "initialize"), &ctx).is_none());
+        assert!(handle_notification_with_context("initialized", None, &ctx).is_ok());
+        assert!(connection_accepts_notification(
+            "rpc-session-initialized",
+            "account/updated"
+        ));
+        clear_connection_sessions_for_tests();
     }
 }

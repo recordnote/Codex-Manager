@@ -1,12 +1,12 @@
 use bytes::Bytes;
 use codexmanager_core::storage::{Account, Storage, Token};
 use std::time::Instant;
-use tiny_http::Request;
 
 use super::super::support::deadline;
 use super::openai_base::{handle_openai_base_attempt, OpenAiAttemptResult};
 use super::postprocess::{process_upstream_post_retry_flow, PostRetryFlowDecision};
 use super::primary_flow::{run_primary_upstream_flow, PrimaryFlowDecision};
+use super::transport::UpstreamRequestContext;
 
 pub(in super::super) enum CandidateUpstreamDecision {
     RespondUpstream(reqwest::blocking::Response),
@@ -18,7 +18,7 @@ pub(in super::super) enum CandidateUpstreamDecision {
 pub(in super::super) fn process_candidate_upstream_flow<F>(
     storage: &Storage,
     method: &reqwest::Method,
-    request: &Request,
+    request_ctx: UpstreamRequestContext<'_>,
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
@@ -55,7 +55,6 @@ where
             storage,
             method,
             path,
-            request,
             incoming_headers,
             body,
             is_stream,
@@ -90,7 +89,7 @@ where
         &client,
         storage,
         method,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         is_stream,
@@ -138,7 +137,7 @@ where
         primary_url,
         alt_url,
         request_deadline,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         is_stream,

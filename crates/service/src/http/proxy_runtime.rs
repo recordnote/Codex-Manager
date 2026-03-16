@@ -1,7 +1,7 @@
 use axum::body::{to_bytes, Body};
 use axum::extract::State;
 use axum::http::{header, Request as HttpRequest, Response, StatusCode};
-use axum::routing::any;
+use axum::routing::{any, get};
 use axum::Router;
 use reqwest::Client;
 use std::io;
@@ -109,6 +109,21 @@ async fn proxy_handler(
     }
 }
 
+fn build_front_proxy_app(state: ProxyState) -> Router {
+    Router::new()
+        .route(
+            "/rpc",
+            get(crate::http::rpc_ws_endpoint::handle_rpc_websocket)
+                .post(crate::http::rpc_endpoint::handle_rpc_http),
+        )
+        .route(
+            "/rpc/events",
+            get(crate::http::rpc_stream_endpoint::handle_rpc_events),
+        )
+        .fallback(any(proxy_handler))
+        .with_state(state)
+}
+
 pub(crate) fn run_front_proxy(addr: &str, backend_addr: &str) -> io::Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -122,7 +137,7 @@ pub(crate) fn run_front_proxy(addr: &str, backend_addr: &str) -> io::Result<()> 
             backend_base_url: build_backend_base_url(backend_addr),
             client,
         };
-        let app = Router::new().fallback(any(proxy_handler)).with_state(state);
+        let app = build_front_proxy_app(state);
         run_proxy_server(addr, app).await
     })
 }

@@ -48,11 +48,11 @@ impl<'a> GatewayUpstreamExecutionContext<'a> {
         }
     }
 
-    pub(super) fn has_more_candidates(&self, idx: usize) -> bool {
+    pub(in super::super) fn has_more_candidates(&self, idx: usize) -> bool {
         idx + 1 < self.candidate_count
     }
 
-    pub(super) fn should_skip_candidate(
+    pub(in super::super) fn should_skip_candidate(
         &self,
         account_id: &str,
         idx: usize,
@@ -65,7 +65,7 @@ impl<'a> GatewayUpstreamExecutionContext<'a> {
         )
     }
 
-    pub(super) fn log_candidate_start(
+    pub(in super::super) fn log_candidate_start(
         &self,
         account_id: &str,
         idx: usize,
@@ -80,7 +80,7 @@ impl<'a> GatewayUpstreamExecutionContext<'a> {
         );
     }
 
-    pub(super) fn log_candidate_skip(
+    pub(in super::super) fn log_candidate_skip(
         &self,
         account_id: &str,
         idx: usize,

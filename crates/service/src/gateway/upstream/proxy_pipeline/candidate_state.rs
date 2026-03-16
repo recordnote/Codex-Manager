@@ -6,7 +6,7 @@ use super::super::support::payload_rewrite::strip_encrypted_content_from_body;
 use super::request_setup::UpstreamRequestSetup;
 
 #[derive(Default)]
-pub(super) struct CandidateExecutionState {
+pub(in super::super) struct CandidateExecutionState {
     stripped_body: Option<Bytes>,
     rewritten_bodies: HashMap<String, Bytes>,
     stripped_rewritten_bodies: HashMap<String, Bytes>,
@@ -14,7 +14,7 @@ pub(super) struct CandidateExecutionState {
 }
 
 impl CandidateExecutionState {
-    pub(super) fn strip_session_affinity(
+    pub(in super::super) fn strip_session_affinity(
         &mut self,
         account: &Account,
         idx: usize,
@@ -73,7 +73,7 @@ impl CandidateExecutionState {
             .clone()
     }
 
-    pub(super) fn body_for_attempt(
+    pub(in super::super) fn body_for_attempt(
         &mut self,
         path: &str,
         body: &Bytes,
@@ -111,7 +111,7 @@ impl CandidateExecutionState {
         }
     }
 
-    pub(super) fn retry_body(
+    pub(in super::super) fn retry_body(
         &mut self,
         path: &str,
         body: &Bytes,

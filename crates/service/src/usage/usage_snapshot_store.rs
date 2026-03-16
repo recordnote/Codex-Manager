@@ -56,5 +56,6 @@ pub(crate) fn store_usage_snapshot(
         let _ = storage.prune_usage_snapshots_for_account(account_id, retain);
     }
     let _ = apply_status_from_snapshot(storage, &record);
+    crate::rpc_notifications::notify_account_rate_limits_updated(account_id);
     Ok(())
 }

@@ -11,9 +11,12 @@ mod http;
 mod lifecycle;
 mod requestlog;
 mod rpc_dispatch;
+mod rpc_notifications;
+mod rpc_transport;
 mod runtime;
 mod startup_snapshot;
 mod storage;
+mod thread_turn;
 mod usage;
 
 pub(crate) use account::availability as account_availability;
@@ -110,6 +113,10 @@ pub(crate) fn handle_request_with_context(
     ctx: &rpc_dispatch::RpcRequestContext,
 ) -> JsonRpcResponse {
     rpc_dispatch::handle_request_with_context(req, ctx)
+}
+
+pub fn clear_thread_turn_for_tests() {
+    thread_turn::clear_for_tests();
 }
 
 #[cfg(test)]

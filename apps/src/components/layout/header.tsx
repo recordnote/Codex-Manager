@@ -70,7 +70,7 @@ export function Header() {
       const nextAddr = await persistServiceAddr(serviceStatus.addr || `localhost:${portInput}`);
       if (enabled) {
         await serviceClient.start(nextAddr);
-        const initResult = await serviceClient.initialize();
+        const initResult = await serviceClient.initialize(nextAddr);
         if (!isExpectedInitializeResult(initResult)) {
           throw new Error("Port is in use or unexpected service responded (missing server_name)");
         }

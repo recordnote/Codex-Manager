@@ -4,6 +4,7 @@ use std::time::Instant;
 use tiny_http::Request;
 
 use super::super::attempt_flow::candidate_flow::CandidateUpstreamDecision;
+use super::super::attempt_flow::transport::UpstreamRequestContext;
 use super::super::support::candidates::free_account_model_override;
 use super::super::support::deadline;
 use super::candidate_attempt::{
@@ -109,6 +110,7 @@ pub(in super::super) fn execute_candidate_sequence(
         let request_ref = request
             .as_ref()
             .ok_or_else(|| "request already consumed".to_string())?;
+        let request_ctx = UpstreamRequestContext::from_request(request_ref);
         let incoming_session_id = incoming_headers.session_id();
         let incoming_turn_state = incoming_headers.turn_state();
         let incoming_conversation_id = incoming_headers.conversation_id();
@@ -132,7 +134,7 @@ pub(in super::super) fn execute_candidate_sequence(
         let decision = run_candidate_attempt(CandidateAttemptParams {
             storage,
             method,
-            request: request_ref,
+            request_ctx,
             incoming_headers,
             body: &body_for_attempt,
             upstream_is_stream,
@@ -186,7 +188,7 @@ pub(in super::super) fn execute_candidate_sequence(
                     let retry_decision = run_candidate_attempt(CandidateAttemptParams {
                         storage,
                         method,
-                        request: request_ref,
+                        request_ctx,
                         incoming_headers,
                         body: &retry_body,
                         upstream_is_stream,

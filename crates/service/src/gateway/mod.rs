@@ -124,6 +124,9 @@ use selection::collect_gateway_candidates;
 #[cfg(test)]
 use token_exchange::account_token_exchange_lock;
 use token_exchange::resolve_openai_bearer_token;
+pub(crate) use upstream::app_server_turn_runtime::{
+    execute_app_server_turn_response_request, AppServerTurnExecution, AppServerTurnUsage,
+};
 use upstream::proxy::proxy_validated_request;
 
 pub(crate) fn reload_runtime_config_from_env() {

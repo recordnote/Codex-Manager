@@ -27,8 +27,11 @@ function readStringField(payload: unknown, key: string): string {
 export const serviceClient = {
   start: (addr?: string) => invoke("service_start", { addr }),
   stop: () => invoke("service_stop"),
-  async initialize(): Promise<ServiceInitializationResult> {
-    const result = await invoke<unknown>("service_initialize", withAddr());
+  async initialize(addr?: string): Promise<ServiceInitializationResult> {
+    const result = await invoke<unknown>(
+      "service_initialize",
+      addr ? { addr } : withAddr()
+    );
     return readInitializeResult(result);
   },
   async getStartupSnapshot(

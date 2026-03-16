@@ -2,10 +2,9 @@ use bytes::Bytes;
 use codexmanager_core::storage::Account;
 use reqwest::StatusCode;
 use std::time::{Duration, Instant};
-use tiny_http::Request;
 
 use super::super::support::{backoff, deadline};
-use super::transport::send_upstream_request;
+use super::transport::{send_upstream_request, UpstreamRequestContext};
 
 pub(super) enum StatelessRetryResult {
     NotTriggered,
@@ -34,7 +33,7 @@ pub(super) fn retry_stateless_then_optional_alt(
     primary_url: &str,
     alt_url: Option<&str>,
     request_deadline: Option<Instant>,
-    request: &Request,
+    request_ctx: UpstreamRequestContext<'_>,
     incoming_headers: &super::super::super::IncomingHeaderSnapshot,
     body: &Bytes,
     is_stream: bool,
@@ -62,7 +61,7 @@ pub(super) fn retry_stateless_then_optional_alt(
     if debug {
         log::warn!(
             "event=gateway_upstream_stateless_retry path={} status={} account_id={}",
-            request.url(),
+            request_ctx.request_path,
             status.as_u16(),
             account.id
         );
@@ -85,7 +84,7 @@ pub(super) fn retry_stateless_then_optional_alt(
         method,
         primary_url,
         request_deadline,
-        request,
+        request_ctx,
         incoming_headers,
         body,
         is_stream,
@@ -98,7 +97,7 @@ pub(super) fn retry_stateless_then_optional_alt(
         Err(err) => {
             log::warn!(
                 "event=gateway_stateless_retry_error path={} status=502 account_id={} err={}",
-                request.url(),
+                request_ctx.request_path,
                 account.id,
                 err
             );
@@ -124,7 +123,7 @@ pub(super) fn retry_stateless_then_optional_alt(
                 method,
                 alt_url,
                 request_deadline,
-                request,
+                request_ctx,
                 incoming_headers,
                 body,
                 is_stream,
@@ -139,7 +138,7 @@ pub(super) fn retry_stateless_then_optional_alt(
                 Err(err) => {
                     log::warn!(
                         "event=gateway_stateless_alt_retry_error path={} status=502 account_id={} upstream_url={} err={}",
-                        request.url(),
+                        request_ctx.request_path,
                         account.id,
                         alt_url,
                         err

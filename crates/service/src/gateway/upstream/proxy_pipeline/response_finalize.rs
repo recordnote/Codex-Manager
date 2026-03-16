@@ -31,15 +31,19 @@ pub(super) fn respond_total_timeout(
     context: &GatewayUpstreamExecutionContext<'_>,
     trace_id: &str,
     started_at: std::time::Instant,
+    model_for_log: Option<&str>,
+    attempted_account_ids: Option<&[String]>,
 ) -> Result<(), String> {
     let message = "upstream total timeout exceeded".to_string();
-    context.log_final_result(
+    context.log_final_result_with_model(
         None,
         None,
+        model_for_log,
         504,
         RequestLogUsage::default(),
         Some(message.as_str()),
         started_at.elapsed().as_millis(),
+        attempted_account_ids,
     );
     respond_terminal(request, 504, message, Some(trace_id))
 }
@@ -53,14 +57,18 @@ pub(super) fn finalize_terminal_candidate(
     message: String,
     trace_id: &str,
     started_at: std::time::Instant,
+    model_for_log: Option<&str>,
+    attempted_account_ids: Option<&[String]>,
 ) -> Result<(), String> {
-    context.log_final_result(
+    context.log_final_result_with_model(
         Some(account_id),
         last_attempt_url,
+        model_for_log,
         status_code,
         RequestLogUsage::default(),
         Some(message.as_str()),
         started_at.elapsed().as_millis(),
+        attempted_account_ids,
     );
     respond_terminal(request, status_code, message, Some(trace_id))
 }
@@ -80,6 +88,8 @@ pub(super) fn finalize_upstream_response(
     path: &str,
     trace_id: &str,
     started_at: std::time::Instant,
+    model_for_log: Option<&str>,
+    attempted_account_ids: Option<&[String]>,
 ) -> Result<(), String> {
     let status_code = response.status().as_u16();
     let mut final_error = None;
@@ -147,7 +157,6 @@ pub(super) fn finalize_upstream_response(
     };
 
     if upstream_stream_failed {
-        let _ = super::super::super::clear_manual_preferred_account_if(account_id);
         super::super::super::mark_account_cooldown(
             account_id,
             super::super::super::CooldownReason::Network,
@@ -156,9 +165,10 @@ pub(super) fn finalize_upstream_response(
     }
 
     let usage = bridge.usage;
-    context.log_final_result(
+    context.log_final_result_with_model(
         Some(account_id),
         last_attempt_url,
+        model_for_log,
         status_for_log,
         RequestLogUsage {
             input_tokens: usage.input_tokens,
@@ -169,6 +179,7 @@ pub(super) fn finalize_upstream_response(
         },
         final_error.as_deref(),
         started_at.elapsed().as_millis(),
+        attempted_account_ids,
     );
     Ok(())
 }

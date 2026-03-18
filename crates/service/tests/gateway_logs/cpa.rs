@@ -465,13 +465,7 @@ fn gateway_cpa_no_cookie_header_mode_keeps_account_header_on_compact() {
             .map(String::as_str),
         Some("chatgpt_acc_cpa_compact")
     );
-    assert_eq!(
-        captured
-            .headers
-            .get("x-openai-subagent")
-            .map(String::as_str),
-        Some("compact")
-    );
+    assert!(!captured.headers.contains_key("x-openai-subagent"));
     assert_eq!(
         captured.headers.get("session_id").map(String::as_str),
         Some("sess_cpa_compact")

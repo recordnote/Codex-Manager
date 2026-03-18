@@ -197,6 +197,19 @@ pub(super) fn hash_platform_key_for_test(key: &str) -> String {
     out
 }
 
+pub(super) fn decode_upstream_request_body(captured: &CapturedUpstreamRequest) -> Vec<u8> {
+    if captured
+        .headers
+        .get("content-encoding")
+        .is_some_and(|value| value.eq_ignore_ascii_case("zstd"))
+    {
+        zstd::stream::decode_all(std::io::Cursor::new(captured.body.as_slice()))
+            .expect("decode zstd upstream payload")
+    } else {
+        captured.body.clone()
+    }
+}
+
 #[derive(Debug)]
 pub(super) struct CapturedUpstreamRequest {
     pub(super) path: String,

@@ -2,12 +2,13 @@ FROM node:20-bookworm-slim AS ui
 
 WORKDIR /src/apps
 
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
 
-COPY apps/package.json apps/pnpm-lock.yaml apps/vite.config.js apps/index.html ./
+COPY apps/package.json apps/pnpm-lock.yaml apps/pnpm-workspace.yaml ./
+COPY apps/components.json apps/next-env.d.ts apps/next.config.ts ./
+COPY apps/postcss.config.mjs apps/tsconfig.json ./
+COPY apps/public ./public
 COPY apps/src ./src
-COPY apps/tests ./tests
-COPY apps/scripts ./scripts
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm run build
@@ -19,7 +20,7 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 
-COPY --from=ui /src/apps/dist ./apps/dist
+COPY --from=ui /src/apps/out ./apps/out
 
 RUN cargo build -p codexmanager-web --release --features embedded-ui
 

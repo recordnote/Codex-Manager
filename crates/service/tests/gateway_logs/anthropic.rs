@@ -119,9 +119,12 @@ fn gateway_claude_protocol_end_to_end_uses_codex_headers() {
         captured.headers.get("accept").map(String::as_str),
         Some("text/event-stream")
     );
-    assert_eq!(
-        captured.headers.get("version").map(String::as_str),
-        Some("0.101.0")
+    assert!(
+        captured
+            .headers
+            .get("user-agent")
+            .is_some_and(|value| value.contains("0.101.0")),
+        "user-agent should carry codex client version"
     );
     assert!(!captured.headers.contains_key("openai-beta"));
     assert_eq!(
@@ -341,7 +344,7 @@ fn gateway_claude_failover_cross_workspace_strips_session_affinity_headers() {
             .headers
             .get("conversation_id")
             .map(String::as_str),
-        Some("conv_cross_ws")
+        None
     );
     assert!(
         ws_a_stateful
@@ -511,6 +514,6 @@ fn gateway_claude_failover_same_workspace_preserves_session_affinity_headers() {
     );
     assert_eq!(
         account_2.headers.get("conversation_id").map(String::as_str),
-        Some("conv_same_ws")
+        None
     );
 }

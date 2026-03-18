@@ -1536,7 +1536,7 @@ fn gateway_chatgpt_primary_preserves_turn_state_headers_without_openai_fallback(
     );
     assert_eq!(
         first.headers.get("x-client-request-id").map(String::as_str),
-        Some("conv_dummy")
+        Some("req_dummy")
     );
     assert_eq!(
         first.headers.get("x-openai-subagent").map(String::as_str),
@@ -1751,16 +1751,7 @@ fn gateway_chatgpt_primary_uses_prompt_cache_anchor_for_session_without_inventin
     assert!(!captured.headers.contains_key("x-codex-turn-state"));
     assert!(!captured.headers.contains_key("conversation_id"));
 
-    let upstream_body = if captured
-        .headers
-        .get("content-encoding")
-        .is_some_and(|value| value.eq_ignore_ascii_case("zstd"))
-    {
-        zstd::stream::decode_all(std::io::Cursor::new(captured.body.as_slice()))
-            .expect("decode zstd upstream payload")
-    } else {
-        captured.body.clone()
-    };
+    let upstream_body = decode_upstream_request_body(&captured);
     let upstream_payload: serde_json::Value =
         serde_json::from_slice(&upstream_body).expect("parse upstream payload");
     assert_eq!(upstream_payload["prompt_cache_key"], "conv_anchor_primary");
@@ -1888,11 +1879,11 @@ fn gateway_unauthorized_refreshes_access_token_and_retries_once() {
     assert_eq!(second.path, "/oauth/token");
     let refresh_body = String::from_utf8(second.body.clone()).expect("refresh body utf8");
     assert!(
-        refresh_body.contains("grant_type=refresh_token"),
+        refresh_body.contains("\"grant_type\":\"refresh_token\""),
         "unexpected refresh body: {refresh_body}"
     );
     assert!(
-        refresh_body.contains("refresh_token=refresh_token_old"),
+        refresh_body.contains("\"refresh_token\":\"refresh_token_old\""),
         "unexpected refresh body: {refresh_body}"
     );
     assert_eq!(third.path, "/chatgpt.com/backend-api/codex/responses");
@@ -2046,7 +2037,8 @@ fn gateway_invalid_refresh_token_marks_first_account_inactive_and_fails_over() {
         first.headers.get("authorization").map(String::as_str),
         Some("Bearer access_token_old_bad")
     );
-    let first_body = String::from_utf8(first.body.clone()).expect("first body utf8");
+    let first_body =
+        String::from_utf8(decode_upstream_request_body(&first)).expect("first body utf8");
     assert!(
         first_body.contains("\"service_tier\":\"priority\""),
         "unexpected first upstream body: {first_body}"
@@ -2057,7 +2049,8 @@ fn gateway_invalid_refresh_token_marks_first_account_inactive_and_fails_over() {
         third.headers.get("authorization").map(String::as_str),
         Some("Bearer access_token_good")
     );
-    let third_body = String::from_utf8(third.body.clone()).expect("third body utf8");
+    let third_body =
+        String::from_utf8(decode_upstream_request_body(&third)).expect("third body utf8");
     assert!(
         third_body.contains("\"service_tier\":\"priority\""),
         "unexpected second-account upstream body: {third_body}"

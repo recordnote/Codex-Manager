@@ -126,7 +126,7 @@
 - CPA（CLIProxyAPI）：本项目在协议适配、请求转发与兼容行为上参考了该项目的实现思路 <https://github.com/router-for-me/CLIProxyAPI>
 
 ## 认可社区
--  [Linux.do 开源推广](https://linux.do/t/topic/1776670)
+-  [Linux.do 开源推广](https://linux.do/t/topic/1688401)
 
 ## 联系方式
 - 公众号：七线牛马

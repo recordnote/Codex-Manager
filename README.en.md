@@ -116,7 +116,7 @@ A local desktop + service toolkit for managing Codex-compatible accounts, usage,
 - CPA (CLIProxyAPI): this project references its protocol adaptation, request forwarding, and compatibility design <https://github.com/router-for-me/CLIProxyAPI>
 
 ## Recognized Community
-- [Linux.do Open Source Promotion](https://linux.do/t/topic/1776670)
+- [Linux.do Open Source Promotion](https://linux.do/t/topic/1688401)
 
 ## Contact Information
 - Official Account: 七线牛马

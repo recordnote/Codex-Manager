@@ -4,7 +4,7 @@
 
 <h1 align="center">CodexManager</h1>
 
-<p align="center">本地桌面端 + 服务进程的 Codex 账号池管理器</p>
+<p align="center">本地桌面端 + 服务进程的 Codex 账号管理器+网关转发</p>
 
 <p align="center">
   <a href="README.en.md">English</a>

@@ -202,7 +202,13 @@ fn import_single_item_reuses_existing_login_account_by_scope_identity() {
     let accounts = storage.list_accounts().expect("list accounts");
     assert_eq!(accounts.len(), 1);
     assert_eq!(accounts[0].id, existing_id);
-    assert_eq!(accounts[0].group_name.as_deref(), Some("LOGIN"));
+    assert_eq!(accounts[0].group_name, None);
+    assert!(
+        storage
+            .find_account_metadata(&accounts[0].id)
+            .expect("find metadata")
+            .is_none()
+    );
 
     let token = storage
         .find_token_by_account_id(&accounts[0].id)
@@ -226,7 +232,8 @@ fn import_single_item_prefers_meta_fields_for_new_account() {
         "meta": {
             "label": "Meta Label",
             "issuer": "https://issuer.example",
-            "group_name": "META-GROUP",
+            "note": "Meta Note",
+            "tags": ["高频", "团队A"],
             "workspace_id": "ws-manual",
             "chatgpt_account_id": "cgpt-manual"
         }
@@ -243,12 +250,18 @@ fn import_single_item_prefers_meta_fields_for_new_account() {
     );
     assert_eq!(accounts[0].label, "Meta Label");
     assert_eq!(accounts[0].issuer, "https://issuer.example");
-    assert_eq!(accounts[0].group_name.as_deref(), Some("META-GROUP"));
+    assert_eq!(accounts[0].group_name, None);
     assert_eq!(
         accounts[0].chatgpt_account_id.as_deref(),
         Some("cgpt-manual")
     );
     assert_eq!(accounts[0].workspace_id.as_deref(), Some("ws-manual"));
+    let metadata = storage
+        .find_account_metadata(&accounts[0].id)
+        .expect("find metadata")
+        .expect("metadata");
+    assert_eq!(metadata.note.as_deref(), Some("Meta Note"));
+    assert_eq!(metadata.tags.as_deref(), Some("高频,团队A"));
 }
 
 #[test]

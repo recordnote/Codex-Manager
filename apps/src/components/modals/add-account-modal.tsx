@@ -26,6 +26,8 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { accountClient } from "@/lib/api/account-client";
+import { useRuntimeCapabilities } from "@/hooks/useRuntimeCapabilities";
+import { useAppStore } from "@/lib/store/useAppStore";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -137,12 +139,15 @@ function getBulkImportErrorMessage(error: unknown): string {
 }
 
 export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
+  const serviceStatus = useAppStore((state) => state.serviceStatus);
+  const { canAccessManagementRpc } = useRuntimeCapabilities();
   const [activeTab, setActiveTab] = useState("login");
   const [isLoading, setIsLoading] = useState(false);
   const [isPollingLogin, setIsPollingLogin] = useState(false);
   const [loginHint, setLoginHint] = useState("");
   const queryClient = useQueryClient();
   const loginPollTokenRef = useRef(0);
+  const isServiceReady = canAccessManagementRpc && serviceStatus.connected;
 
   // Login Form
   const [tags, setTags] = useState("");
@@ -153,6 +158,9 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
 
   // Bulk Import
   const [bulkContent, setBulkContent] = useState("");
+  const unavailableMessage = canAccessManagementRpc
+    ? "服务未连接，账号授权与导入暂不可用；连接恢复后可继续操作。"
+    : "当前运行环境暂不支持账号管理。";
 
   const resetModalState = useCallback(() => {
     loginPollTokenRef.current += 1;
@@ -188,6 +196,18 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
     toast.success(message);
     resetModalState();
     onOpenChange(false);
+  };
+
+  const ensureServiceReady = (actionLabel: string) => {
+    if (isServiceReady) {
+      return true;
+    }
+    toast.info(
+      canAccessManagementRpc
+        ? `服务未连接，暂时无法${actionLabel}`
+        : "当前运行环境暂不支持账号管理"
+    );
+    return false;
   };
 
   const waitForLogin = async (loginId: string) => {
@@ -232,6 +252,9 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
   };
 
   const handleStartLogin = async () => {
+    if (!ensureServiceReady("开始登录授权")) {
+      return;
+    }
     setIsLoading(true);
     setLoginHint("");
     try {
@@ -258,6 +281,9 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
   };
 
   const handleManualCallback = async () => {
+    if (!ensureServiceReady("解析登录回调")) {
+      return;
+    }
     if (!manualCallback) {
       toast.error("请先粘贴回调链接");
       return;
@@ -281,6 +307,9 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
   };
 
   const handleBulkImport = async () => {
+    if (!ensureServiceReady("导入账号")) {
+      return;
+    }
     if (!bulkContent.trim()) return;
     setIsLoading(true);
     try {
@@ -341,14 +370,30 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
 
           <div className="max-h-[calc(85vh-154px)] overflow-y-auto p-6">
             <TabsContent value="login" className="mt-0 space-y-4">
+              {!isServiceReady ? (
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+                  {canAccessManagementRpc
+                    ? "服务未连接，账号授权与回调解析暂不可用；连接恢复后可继续操作。"
+                    : unavailableMessage}
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>标签 (逗号分隔)</Label>
-                  <Input placeholder="例如：高频, 团队A" value={tags} onChange={e => setTags(e.target.value)} />
+                  <Input
+                    placeholder="例如：高频, 团队A"
+                    value={tags}
+                    disabled={!isServiceReady}
+                    onChange={e => setTags(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>分组</Label>
-                  <Select value={group} onValueChange={(val) => val && setGroup(val)}>
+                  <Select
+                    value={group}
+                    onValueChange={(val) => val && setGroup(val)}
+                    disabled={!isServiceReady}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="选择分组">
                         {(value) => {
@@ -367,11 +412,20 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
               </div>
               <div className="space-y-2">
                 <Label>备注/描述</Label>
-                <Input placeholder="例如：主号 / 测试号" value={note} onChange={e => setNote(e.target.value)} />
+                <Input
+                  placeholder="例如：主号 / 测试号"
+                  value={note}
+                  disabled={!isServiceReady}
+                  onChange={e => setNote(e.target.value)}
+                />
               </div>
 
               <div className="pt-2">
-                <Button onClick={handleStartLogin} disabled={isLoading || isPollingLogin} className="w-full gap-2">
+                <Button
+                  onClick={handleStartLogin}
+                  disabled={!isServiceReady || isLoading || isPollingLogin}
+                  className="w-full gap-2"
+                >
                   <ExternalLink className="h-4 w-4" /> 登录授权
                 </Button>
                 {loginUrl && (
@@ -381,6 +435,7 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
                       variant="ghost"
                       size="sm"
                       onClick={() => void copyUrl()}
+                      disabled={!loginUrl}
                       className="h-8 w-8 p-0"
                     >
                       <Clipboard className="h-3.5 w-3.5" />
@@ -401,13 +456,14 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
                     <Input 
                       placeholder="粘贴浏览器跳转后的完整回调 URL (包含 state 和 code)" 
                       value={manualCallback}
+                      disabled={!isServiceReady}
                       onChange={e => setManualCallback(e.target.value)}
                       className="font-mono text-[10px] h-9" 
                     />
                     <Button 
                       variant="secondary" 
                       onClick={handleManualCallback} 
-                      disabled={isLoading} 
+                      disabled={!isServiceReady || isLoading} 
                       className="h-9 px-4 shrink-0"
                     >
                       解析
@@ -418,12 +474,18 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
             </TabsContent>
 
             <TabsContent value="bulk" className="mt-0 space-y-4">
+              {!isServiceReady ? (
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+                  {unavailableMessage}
+                </div>
+              ) : null}
               <div className="space-y-2">
                 <Label>账号数据 (Token 可每行一个，JSON 可整段粘贴)</Label>
                 <Textarea 
                   placeholder="粘贴账号数据。普通 Token 可每行一个；完整 JSON / JSON 数组请整段粘贴。"
                   className="min-h-[250px] resize-none overflow-auto whitespace-pre-wrap break-all [overflow-wrap:anywhere] font-mono text-[10px] leading-4"
                   value={bulkContent}
+                  disabled={!isServiceReady}
                   onChange={(e) => setBulkContent(e.target.value)}
                 />
               </div>
@@ -431,7 +493,11 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
                 <Info className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />
                 支持格式：ChatGPT 账号（Refresh Token）、 Claude Session 等。系统将自动识别格式并导入。
               </div>
-              <Button onClick={handleBulkImport} disabled={isLoading} className="w-full">
+              <Button
+                onClick={handleBulkImport}
+                disabled={!isServiceReady || isLoading}
+                className="w-full"
+              >
                 开始导入
               </Button>
             </TabsContent>

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRuntimeCapabilities } from "@/hooks/useRuntimeCapabilities";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { appClient } from "@/lib/api/app-client";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ interface WebPasswordModalProps {
 
 export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) {
   const { appSettings, setAppSettings } = useAppStore();
+  const { canAccessManagementRpc } = useRuntimeCapabilities();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +38,9 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
     }
 
     let cancelled = false;
+    if (!canAccessManagementRpc) {
+      return;
+    }
     const syncSettings = async () => {
       try {
         const settings = await appClient.getSettings();
@@ -56,9 +61,13 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
     return () => {
       cancelled = true;
     };
-  }, [open, setAppSettings]);
+  }, [canAccessManagementRpc, open, setAppSettings]);
 
   const handleSave = async () => {
+    if (!canAccessManagementRpc) {
+      toast.info("当前运行环境暂不支持读取或保存访问密码");
+      return;
+    }
     if (!password) {
       toast.error("请输入密码");
       return;
@@ -84,6 +93,10 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
   };
 
   const handleClear = async () => {
+    if (!canAccessManagementRpc) {
+      toast.info("当前运行环境暂不支持读取或保存访问密码");
+      return;
+    }
     setIsLoading(true);
     try {
       const settings = await appClient.setSettings({ webAccessPassword: "" });
@@ -115,6 +128,11 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          {!canAccessManagementRpc ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+              当前运行环境暂不支持读取或保存访问密码。
+            </div>
+          ) : null}
           {appSettings.webAccessPasswordConfigured ? (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm">
               <ShieldCheck className="h-4 w-4" />
@@ -134,6 +152,7 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
               type="password" 
               placeholder="请输入新密码"
               value={password}
+              disabled={!canAccessManagementRpc}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
@@ -144,6 +163,7 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
               type="password" 
               placeholder="请再次输入新密码"
               value={confirmPassword}
+              disabled={!canAccessManagementRpc}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
@@ -151,11 +171,11 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
 
         <DialogFooter className="gap-2 sm:gap-0">
           {appSettings.webAccessPasswordConfigured && (
-            <Button variant="ghost" onClick={handleClear} disabled={isLoading} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+            <Button variant="ghost" onClick={handleClear} disabled={!canAccessManagementRpc || isLoading} className="text-destructive hover:text-destructive hover:bg-destructive/10">
               <Trash2 className="h-4 w-4 mr-2" /> 清除密码
             </Button>
           )}
-          <Button onClick={handleSave} disabled={isLoading}>
+          <Button onClick={handleSave} disabled={!canAccessManagementRpc || isLoading}>
             {isLoading ? "保存中..." : "保存设置"}
           </Button>
         </DialogFooter>

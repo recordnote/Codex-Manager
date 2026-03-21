@@ -19,7 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRuntimeCapabilities } from "@/hooks/useRuntimeCapabilities";
 import { accountClient } from "@/lib/api/account-client";
+import { useAppStore } from "@/lib/store/useAppStore";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -53,6 +55,8 @@ interface ApiKeyModalProps {
 }
 
 export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
+  const serviceStatus = useAppStore((state) => state.serviceStatus);
+  const { canAccessManagementRpc } = useRuntimeCapabilities();
   const [name, setName] = useState("");
   const [protocolType, setProtocolType] = useState("openai_compat");
   const [modelSlug, setModelSlug] = useState("");
@@ -65,11 +69,15 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
 
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
+  const isServiceReady = canAccessManagementRpc && serviceStatus.connected;
+  const unavailableMessage = canAccessManagementRpc
+    ? "服务未连接，平台密钥与模型配置暂不可编辑；连接恢复后可继续操作。"
+    : "当前运行环境暂不支持平台密钥管理。";
 
   const { data: models } = useQuery({
     queryKey: ["apikey-models"],
     queryFn: () => accountClient.listModels(false),
-    enabled: open,
+    enabled: open && isServiceReady,
   });
 
   const modelLabelMap = Object.fromEntries(
@@ -120,6 +128,14 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
   }, [apiKey, open]);
 
   const handleSave = async () => {
+    if (!isServiceReady) {
+      toast.info(
+        canAccessManagementRpc
+          ? "服务未连接，暂时无法保存平台密钥"
+          : "当前运行环境暂不支持平台密钥管理"
+      );
+      return;
+    }
     setIsLoading(true);
     try {
       const staticHeaders: Record<string, string> = {};
@@ -198,12 +214,18 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
         </DialogHeader>
 
         <div className="grid gap-5 py-4">
+          {!isServiceReady ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+              {unavailableMessage}
+            </div>
+          ) : null}
           <div className="grid gap-2">
             <Label htmlFor="name">密钥名称 (可选)</Label>
             <Input
               id="name"
               placeholder="例如：主机房 / 测试"
               value={name}
+              disabled={!isServiceReady}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
@@ -214,6 +236,7 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
               <Select
                 value={protocolType}
                 onValueChange={(val) => val && setProtocolType(val)}
+                disabled={!isServiceReady}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue>
@@ -239,6 +262,7 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
               <Select
                 value={modelSlug}
                 onValueChange={(val) => val && setModelSlug(val)}
+                disabled={!isServiceReady}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="跟随请求">
@@ -270,6 +294,7 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
               <Select
                 value={reasoningEffort}
                 onValueChange={(val) => val && setReasoningEffort(val)}
+                disabled={!isServiceReady}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="跟随请求等级">
@@ -297,6 +322,7 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
               <Select
                 value={serviceTier}
                 onValueChange={(val) => val && setServiceTier(val)}
+                disabled={!isServiceReady}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="跟随请求">
@@ -326,6 +352,7 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
                 <Input
                   placeholder="https://your-resource.openai.azure.com"
                   value={azureEndpoint}
+                  disabled={!isServiceReady}
                   onChange={(e) => setAzureEndpoint(e.target.value)}
                   className="h-9 font-mono text-xs"
                 />
@@ -336,6 +363,7 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
                   type="password"
                   placeholder="your-azure-key"
                   value={azureApiKey}
+                  disabled={!isServiceReady}
                   onChange={(e) => setAzureApiKey(e.target.value)}
                   className="h-9 font-mono text-xs"
                 />
@@ -354,7 +382,11 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
                   readOnly
                   className="font-mono text-sm bg-primary/5"
                 />
-                <Button variant="outline" onClick={() => void copyKey()}>
+                <Button
+                  variant="outline"
+                  onClick={() => void copyKey()}
+                  disabled={!generatedKey}
+                >
                   <Clipboard className="h-4 w-4" />
                 </Button>
               </div>
@@ -367,7 +399,7 @@ export function ApiKeyModal({ open, onOpenChange, apiKey }: ApiKeyModalProps) {
             {generatedKey ? "关闭" : "取消"}
           </Button>
           {!generatedKey && (
-            <Button onClick={handleSave} disabled={isLoading}>
+            <Button onClick={handleSave} disabled={!isServiceReady || isLoading}>
               {isLoading ? "保存中..." : "完成"}
             </Button>
           )}

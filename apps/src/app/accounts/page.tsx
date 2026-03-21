@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3,
@@ -397,17 +397,6 @@ export default function AccountsPage() {
     : !isDesktopRuntime && canUseBrowserDownloadExport
       ? "DL"
       : "ZIP";
-
-  useEffect(() => {
-    if (isPageActive) {
-      return;
-    }
-    setAddAccountModalOpen(false);
-    setUsageModalOpen(false);
-    setSelectedAccountId("");
-    setDeleteDialogState(null);
-    setAccountEditorState(null);
-  }, [isPageActive]);
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((account) => {
@@ -1101,13 +1090,13 @@ export default function AccountsPage() {
 
       {addAccountModalOpen ? (
         <AddAccountModal
-          open={addAccountModalOpen}
+          open={isPageActive && addAccountModalOpen}
           onOpenChange={setAddAccountModalOpen}
         />
       ) : null}
       <UsageModal
         account={selectedAccount}
-        open={usageModalOpen}
+        open={isPageActive && usageModalOpen}
         onOpenChange={(open) => {
           setUsageModalOpen(open);
           if (!open) {
@@ -1121,7 +1110,7 @@ export default function AccountsPage() {
         }
       />
       <ConfirmDialog
-        open={Boolean(deleteDialogState)}
+        open={isPageActive && Boolean(deleteDialogState)}
         onOpenChange={(open) => {
           if (!open) {
             setDeleteDialogState(null);
@@ -1140,7 +1129,7 @@ export default function AccountsPage() {
         onConfirm={handleConfirmDelete}
       />
       <Dialog
-        open={Boolean(accountEditorState)}
+        open={isPageActive && Boolean(accountEditorState)}
         onOpenChange={(open) => {
           if (!open && !isUpdatingProfileAccountId) {
             setAccountEditorState(null);

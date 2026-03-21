@@ -461,7 +461,6 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
   }, [
     applyConnectedServiceState,
     initializeService,
-    pathname,
     scheduleBootstrapRecovery,
     setAppSettings,
     setRuntimeCapabilities,
@@ -546,7 +545,7 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
     }
 
     window.history.replaceState(window.history.state, "", canonicalUrl);
-  }, [pathname]);
+  }, [isDesktopRuntime, pathname]);
 
   const showLoading = isInitializing && !hasInitializedOnce.current;
   const showError = !!error && !hasInitializedOnce.current;

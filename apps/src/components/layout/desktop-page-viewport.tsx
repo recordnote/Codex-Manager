@@ -43,9 +43,17 @@ export function DesktopPageViewport({ children }: { children: React.ReactNode })
     if (!keepAliveEnabled || !activeRootRoute) {
       return;
     }
-    setVisitedRoutes((current) =>
-      current.includes(activeRootRoute) ? current : [...current, activeRootRoute],
-    );
+    if (typeof window === "undefined") {
+      return;
+    }
+    const frameId = window.requestAnimationFrame(() => {
+      setVisitedRoutes((current) =>
+        current.includes(activeRootRoute) ? current : [...current, activeRootRoute],
+      );
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [activeRootRoute, keepAliveEnabled]);
 
   if (!keepAliveEnabled || !activeRootRoute) {

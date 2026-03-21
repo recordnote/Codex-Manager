@@ -617,15 +617,31 @@ function LogsPageContent() {
   );
 
   useEffect(() => {
-    setSearch((current) => (current === routeQuery ? current : routeQuery));
-    setPage(1);
+    if (typeof window === "undefined") {
+      return;
+    }
+    const frameId = window.requestAnimationFrame(() => {
+      setSearch((current) => (current === routeQuery ? current : routeQuery));
+      setPage(1);
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [routeQuery]);
 
   useEffect(() => {
     if (isPageActive) {
       return;
     }
-    setClearConfirmOpen(false);
+    if (typeof window === "undefined") {
+      return;
+    }
+    const frameId = window.requestAnimationFrame(() => {
+      setClearConfirmOpen(false);
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [isPageActive]);
 
   const currentFilterLabel =

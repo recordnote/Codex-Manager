@@ -10,18 +10,32 @@ export function useDeferredDesktopActivation(enabled: boolean): boolean {
   );
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     if (!enabled) {
-      setIsActivated(false);
-      return;
+      const frameId = window.requestAnimationFrame(() => {
+        setIsActivated(false);
+      });
+      return () => {
+        window.cancelAnimationFrame(frameId);
+      };
     }
 
-    if (!shouldDefer || typeof window === "undefined") {
-      setIsActivated(true);
-      return;
+    if (!shouldDefer) {
+      const frameId = window.requestAnimationFrame(() => {
+        setIsActivated(true);
+      });
+      return () => {
+        window.cancelAnimationFrame(frameId);
+      };
     }
 
-    setIsActivated(false);
     let cancelled = false;
+    const resetFrameId = window.requestAnimationFrame(() => {
+      setIsActivated(false);
+    });
     let secondFrameId: number | null = null;
     const firstFrameId = window.requestAnimationFrame(() => {
       secondFrameId = window.requestAnimationFrame(() => {
@@ -33,6 +47,7 @@ export function useDeferredDesktopActivation(enabled: boolean): boolean {
 
     return () => {
       cancelled = true;
+      window.cancelAnimationFrame(resetFrameId);
       window.cancelAnimationFrame(firstFrameId);
       if (secondFrameId !== null) {
         window.cancelAnimationFrame(secondFrameId);
@@ -40,5 +55,5 @@ export function useDeferredDesktopActivation(enabled: boolean): boolean {
     };
   }, [enabled, shouldDefer]);
 
-  return isActivated;
+  return enabled ? isActivated : false;
 }

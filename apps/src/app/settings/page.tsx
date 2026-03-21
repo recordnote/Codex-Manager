@@ -305,7 +305,7 @@ export default function SettingsPage() {
   >({});
   const [backgroundTaskDraft, setBackgroundTaskDraft] = useState<Record<string, string>>({});
 
-  const { data: fetchedSnapshot, isLoading, isError: isSnapshotError } = useQuery({
+  const { data: fetchedSnapshot, isError: isSnapshotError } = useQuery({
     queryKey: ["app-settings-snapshot"],
     queryFn: () => appClient.getSettings(),
     enabled: isSnapshotQueryEnabled && isPageActive,
@@ -475,7 +475,15 @@ export default function SettingsPage() {
     if (isPageActive) {
       return;
     }
-    setUpdateDialogOpen(false);
+    if (typeof window === "undefined") {
+      return;
+    }
+    const frameId = window.requestAnimationFrame(() => {
+      setUpdateDialogOpen(false);
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [isPageActive]);
 
   useEffect(() => {

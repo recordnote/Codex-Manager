@@ -549,6 +549,7 @@ fn map_anthropic_tool_definition(
         .get("input_schema")
         .cloned()
         .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
+    let parameters = fix_array_items_in_schema(parameters);
     let mapped_name = shorten_openai_tool_name_with_map(name, tool_name_map);
 
     let mut tool_obj = serde_json::Map::new();
@@ -600,4 +601,35 @@ fn resolve_anthropic_parallel_tool_calls(source: &serde_json::Map<String, Value>
         .and_then(|tool_choice| tool_choice.get("disable_parallel_tool_use"))
         .and_then(Value::as_bool)
         .unwrap_or(false)
+}
+
+/// OpenAI/Codex 后端对 JSON Schema 的要求比 Anthropic 更严格：
+/// - `"type":"array"` 必须携带 `"items"` 定义
+/// - `"type":"object"` 必须携带 `"properties"` 定义
+/// 此函数递归补齐缺失的字段。
+fn fix_array_items_in_schema(mut value: Value) -> Value {
+    match &mut value {
+        Value::Object(obj) => {
+            let schema_type = obj
+                .get("type")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            if schema_type.as_deref() == Some("array") && !obj.contains_key("items") {
+                obj.insert("items".to_string(), json!({}));
+            }
+            if schema_type.as_deref() == Some("object") && !obj.contains_key("properties") {
+                obj.insert("properties".to_string(), json!({}));
+            }
+            for (_, v) in obj.iter_mut() {
+                *v = fix_array_items_in_schema(v.clone());
+            }
+        }
+        Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                *v = fix_array_items_in_schema(v.clone());
+            }
+        }
+        _ => {}
+    }
+    value
 }

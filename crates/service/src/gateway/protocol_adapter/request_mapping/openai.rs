@@ -143,6 +143,7 @@ fn map_dynamic_tool_to_responses_tool(
         .or_else(|| tool_obj.get("parameters"))
         .cloned()
         .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
+    let parameters = super::fix_array_items_in_schema(parameters);
 
     let mut mapped = serde_json::Map::new();
     mapped.insert("type".to_string(), Value::String("function".to_string()));
@@ -345,7 +346,10 @@ fn map_openai_chat_tools_to_responses(
                 mapped.insert("description".to_string(), description.clone());
             }
             if let Some(parameters) = function.get("parameters") {
-                mapped.insert("parameters".to_string(), parameters.clone());
+                mapped.insert(
+                    "parameters".to_string(),
+                    super::fix_array_items_in_schema(parameters.clone()),
+                );
             }
             if let Some(strict) = function.get("strict") {
                 mapped.insert("strict".to_string(), strict.clone());

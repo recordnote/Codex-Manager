@@ -110,6 +110,8 @@ fn to_request_log_summary(item: RequestLog) -> RequestLogSummary {
         reasoning_effort: item.reasoning_effort,
         response_adapter: item.response_adapter,
         upstream_url: normalize_upstream_url(item.upstream_url.as_deref()),
+        aggregate_api_supplier_name: item.aggregate_api_supplier_name,
+        aggregate_api_url: normalize_upstream_url(item.aggregate_api_url.as_deref()),
         status_code: item.status_code,
         duration_ms: item.duration_ms,
         input_tokens: item.input_tokens,

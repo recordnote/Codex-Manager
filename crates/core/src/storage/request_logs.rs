@@ -43,8 +43,8 @@ impl Storage {
             "INSERT INTO request_logs (
                 trace_id, key_id, account_id, initial_account_id, attempted_account_ids_json,
                 request_path, original_path, adapted_path,
-                method, model, reasoning_effort, response_adapter, upstream_url, status_code, duration_ms, error, created_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                method, model, reasoning_effort, response_adapter, upstream_url, aggregate_api_supplier_name, aggregate_api_url, status_code, duration_ms, error, created_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 &log.trace_id,
                 &log.key_id,
@@ -59,6 +59,8 @@ impl Storage {
                 &log.reasoning_effort,
                 &log.response_adapter,
                 &log.upstream_url,
+                &log.aggregate_api_supplier_name,
+                &log.aggregate_api_url,
                 log.status_code,
                 log.duration_ms,
                 &log.error,
@@ -78,8 +80,8 @@ impl Storage {
             "INSERT INTO request_logs (
                 trace_id, key_id, account_id, initial_account_id, attempted_account_ids_json,
                 request_path, original_path, adapted_path,
-                method, model, reasoning_effort, response_adapter, upstream_url, status_code, duration_ms, error, created_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                method, model, reasoning_effort, response_adapter, upstream_url, aggregate_api_supplier_name, aggregate_api_url, status_code, duration_ms, error, created_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 &log.trace_id,
                 &log.key_id,
@@ -94,6 +96,8 @@ impl Storage {
                 &log.reasoning_effort,
                 &log.response_adapter,
                 &log.upstream_url,
+                &log.aggregate_api_supplier_name,
+                &log.aggregate_api_url,
                 log.status_code,
                 log.duration_ms,
                 &log.error,
@@ -150,7 +154,7 @@ impl Storage {
             "SELECT
                 r.trace_id, r.key_id, r.account_id, r.initial_account_id, r.attempted_account_ids_json,
                 r.request_path, r.original_path, r.adapted_path,
-                r.method, r.model, r.reasoning_effort, r.response_adapter, r.upstream_url, r.status_code, r.duration_ms,
+                r.method, r.model, r.reasoning_effort, r.response_adapter, r.upstream_url, r.aggregate_api_supplier_name, r.aggregate_api_url, r.status_code, r.duration_ms,
                 t.input_tokens, t.cached_input_tokens, t.output_tokens, t.total_tokens, t.reasoning_output_tokens, t.estimated_cost_usd,
                 r.error, r.created_at
              FROM request_logs r
@@ -262,6 +266,8 @@ impl Storage {
                 reasoning_effort TEXT,
                 response_adapter TEXT,
                 upstream_url TEXT,
+                aggregate_api_supplier_name TEXT,
+                aggregate_api_url TEXT,
                 status_code INTEGER,
                 duration_ms INTEGER,
                 error TEXT,
@@ -304,6 +310,12 @@ impl Storage {
             "CREATE INDEX IF NOT EXISTS idx_request_logs_trace_id_created_at ON request_logs(trace_id, created_at DESC)",
             [],
         )?;
+        Ok(())
+    }
+
+    pub(super) fn ensure_request_log_aggregate_api_context_columns(&self) -> Result<()> {
+        self.ensure_column("request_logs", "aggregate_api_supplier_name", "TEXT")?;
+        self.ensure_column("request_logs", "aggregate_api_url", "TEXT")?;
         Ok(())
     }
 
@@ -360,6 +372,8 @@ impl Storage {
                 reasoning_effort TEXT,
                 response_adapter TEXT,
                 upstream_url TEXT,
+                aggregate_api_supplier_name TEXT,
+                aggregate_api_url TEXT,
                 status_code INTEGER,
                 duration_ms INTEGER,
                 error TEXT,
@@ -368,11 +382,11 @@ impl Storage {
              INSERT INTO request_logs (
                 id, trace_id, key_id, account_id, initial_account_id, attempted_account_ids_json,
                 request_path, original_path, adapted_path,
-                method, model, reasoning_effort, response_adapter, upstream_url, status_code, duration_ms, error, created_at
+                method, model, reasoning_effort, response_adapter, upstream_url, aggregate_api_supplier_name, aggregate_api_url, status_code, duration_ms, error, created_at
              )
              SELECT
                 id, trace_id, key_id, account_id, NULL, NULL, request_path, original_path, adapted_path,
-                method, model, reasoning_effort, response_adapter, upstream_url, status_code, NULL, error, created_at
+                method, model, reasoning_effort, response_adapter, upstream_url, NULL, NULL, status_code, NULL, error, created_at
              FROM request_logs_legacy_028;
              DROP TABLE request_logs_legacy_028;",
         )?;
@@ -398,16 +412,18 @@ fn map_request_log_row(row: &Row<'_>) -> Result<RequestLog> {
         reasoning_effort: row.get(10)?,
         response_adapter: row.get(11)?,
         upstream_url: row.get(12)?,
-        status_code: row.get(13)?,
-        duration_ms: row.get(14)?,
-        input_tokens: row.get(15)?,
-        cached_input_tokens: row.get(16)?,
-        output_tokens: row.get(17)?,
-        total_tokens: row.get(18)?,
-        reasoning_output_tokens: row.get(19)?,
-        estimated_cost_usd: row.get(20)?,
-        error: row.get(21)?,
-        created_at: row.get(22)?,
+        aggregate_api_supplier_name: row.get(13)?,
+        aggregate_api_url: row.get(14)?,
+        status_code: row.get(15)?,
+        duration_ms: row.get(16)?,
+        input_tokens: row.get(17)?,
+        cached_input_tokens: row.get(18)?,
+        output_tokens: row.get(19)?,
+        total_tokens: row.get(20)?,
+        reasoning_output_tokens: row.get(21)?,
+        estimated_cost_usd: row.get(22)?,
+        error: row.get(23)?,
+        created_at: row.get(24)?,
     })
 }
 

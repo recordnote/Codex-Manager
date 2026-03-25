@@ -168,6 +168,7 @@ impl<'a> GatewayUpstreamExecutionContext<'a> {
                 original_path: Some(self.original_path),
                 adapted_path: Some(self.path),
                 response_adapter: Some(self.response_adapter),
+                ..Default::default()
             },
             Some(self.key_id),
             final_account_id,

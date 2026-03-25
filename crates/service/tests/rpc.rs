@@ -1180,6 +1180,8 @@ fn rpc_requestlog_list_and_summary_support_pagination() {
                 reasoning_effort: Some("medium".to_string()),
                 response_adapter: Some("Passthrough".to_string()),
                 upstream_url: Some("https://chatgpt.com/backend-api/codex/responses".to_string()),
+                aggregate_api_supplier_name: None,
+                aggregate_api_url: None,
                 status_code,
                 duration_ms: Some(500 + index),
                 input_tokens: None,

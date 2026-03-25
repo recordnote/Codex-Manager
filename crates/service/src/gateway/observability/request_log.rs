@@ -15,6 +15,8 @@ pub(super) struct RequestLogTraceContext<'a> {
     pub original_path: Option<&'a str>,
     pub adapted_path: Option<&'a str>,
     pub response_adapter: Option<super::ResponseAdapter>,
+    pub aggregate_api_supplier_name: Option<&'a str>,
+    pub aggregate_api_url: Option<&'a str>,
 }
 
 const MODEL_PRICE_PER_1K_TOKENS: &[(&str, f64, f64, f64)] = &[
@@ -243,6 +245,10 @@ pub(super) fn write_request_log_with_attempts(
                 .map(response_adapter_label)
                 .map(str::to_string),
             upstream_url: upstream_url.map(|v| v.to_string()),
+            aggregate_api_supplier_name: trace_context
+                .aggregate_api_supplier_name
+                .map(str::to_string),
+            aggregate_api_url: trace_context.aggregate_api_url.map(str::to_string),
             status_code: status_code.map(|v| i64::from(v)),
             duration_ms,
             input_tokens: None,

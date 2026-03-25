@@ -34,6 +34,7 @@ pub(in super::super) fn prepare_candidates_for_proxy(
                         original_path: Some(original_path),
                         adapted_path: Some(path),
                         response_adapter: Some(response_adapter),
+                        ..Default::default()
                     },
                     Some(key_id),
                     None,
@@ -73,6 +74,7 @@ pub(in super::super) fn prepare_candidates_for_proxy(
                 original_path: Some(original_path),
                 adapted_path: Some(path),
                 response_adapter: Some(response_adapter),
+                ..Default::default()
             },
             Some(key_id),
             None,

@@ -115,6 +115,8 @@ pub struct RequestLog {
     pub reasoning_effort: Option<String>,
     pub response_adapter: Option<String>,
     pub upstream_url: Option<String>,
+    pub aggregate_api_supplier_name: Option<String>,
+    pub aggregate_api_url: Option<String>,
     pub status_code: Option<i64>,
     pub duration_ms: Option<i64>,
     pub input_tokens: Option<i64>,
@@ -408,6 +410,11 @@ impl Storage {
                 s.ensure_aggregate_apis_table()?;
                 s.ensure_aggregate_api_secrets_table()
             },
+        )?;
+        self.apply_sql_or_compat_migration(
+            "038_request_logs_aggregate_api_context",
+            include_str!("../../migrations/038_request_logs_aggregate_api_context.sql"),
+            |s| s.ensure_request_log_aggregate_api_context_columns(),
         )?;
         self.ensure_api_key_rotation_columns()?;
         self.ensure_aggregate_apis_table()?;

@@ -155,6 +155,8 @@ export interface RequestLog {
   reasoningEffort: string;
   responseAdapter: string;
   upstreamUrl: string;
+  aggregateApiSupplierName: string | null;
+  aggregateApiUrl: string | null;
   statusCode: number | null;
   inputTokens: number | null;
   cachedInputTokens: number | null;

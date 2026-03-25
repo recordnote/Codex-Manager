@@ -90,6 +90,7 @@ pub(in super::super) fn proxy_azure_request(
                 original_path: Some(original_path),
                 adapted_path: Some(path),
                 response_adapter: Some(response_adapter),
+                ..Default::default()
             },
             Some(key_id),
             None,
@@ -130,6 +131,7 @@ pub(in super::super) fn proxy_azure_request(
                     original_path: Some(original_path),
                     adapted_path: Some(path),
                     response_adapter: Some(response_adapter),
+                    ..Default::default()
                 },
                 Some(key_id),
                 None,
@@ -174,6 +176,7 @@ pub(in super::super) fn proxy_azure_request(
                         original_path: Some(original_path),
                         adapted_path: Some(path),
                         response_adapter: Some(response_adapter),
+                        ..Default::default()
                     },
                     Some(key_id),
                     None,
@@ -212,6 +215,7 @@ pub(in super::super) fn proxy_azure_request(
                         original_path: Some(original_path),
                         adapted_path: Some(path),
                         response_adapter: Some(response_adapter),
+                        ..Default::default()
                     },
                     Some(key_id),
                     None,
@@ -330,12 +334,13 @@ pub(in super::super) fn proxy_azure_request(
                     );
                     super::super::super::write_request_log(
                         storage,
-                        super::super::super::request_log::RequestLogTraceContext {
-                            trace_id: Some(trace_id),
-                            original_path: Some(original_path),
-                            adapted_path: Some(path),
-                            response_adapter: Some(response_adapter),
-                        },
+                    super::super::super::request_log::RequestLogTraceContext {
+                        trace_id: Some(trace_id),
+                        original_path: Some(original_path),
+                        adapted_path: Some(path),
+                        response_adapter: Some(response_adapter),
+                        ..Default::default()
+                    },
                         Some(key_id),
                         None,
                         path,
@@ -404,6 +409,7 @@ pub(in super::super) fn proxy_azure_request(
             original_path: Some(original_path),
             adapted_path: Some(path),
             response_adapter: Some(response_adapter),
+            ..Default::default()
         },
         Some(key_id),
         None,

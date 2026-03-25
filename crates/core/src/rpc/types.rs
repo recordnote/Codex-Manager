@@ -299,6 +299,8 @@ pub struct RequestLogSummary {
     pub reasoning_effort: Option<String>,
     pub response_adapter: Option<String>,
     pub upstream_url: Option<String>,
+    pub aggregate_api_supplier_name: Option<String>,
+    pub aggregate_api_url: Option<String>,
     pub status_code: Option<i64>,
     pub duration_ms: Option<i64>,
     pub input_tokens: Option<i64>,

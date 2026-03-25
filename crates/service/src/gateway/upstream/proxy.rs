@@ -1,6 +1,5 @@
 use crate::apikey_profile::{PROTOCOL_ANTHROPIC_NATIVE, PROTOCOL_AZURE_OPENAI};
 use crate::apikey_profile::ROTATION_AGGREGATE_API;
-use crate::aggregate_api::resolve_aggregate_api_for_rotation;
 use crate::gateway::request_log::RequestLogUsage;
 use std::time::Instant;
 use tiny_http::Request;
@@ -105,12 +104,12 @@ pub(in super::super) fn proxy_validated_request(
     super::super::trace_log::log_request_body_preview(trace_id.as_str(), body.as_ref());
 
     if rotation_strategy == ROTATION_AGGREGATE_API {
-        let aggregate_api = match resolve_aggregate_api_for_rotation(
+        let aggregate_api_candidates = match super::protocol::aggregate_api::resolve_aggregate_api_rotation_candidates(
             &storage,
             protocol_type.as_str(),
             aggregate_api_id.as_deref(),
         ) {
-            Ok(api) => api,
+            Ok(candidates) => candidates,
             Err(err) => {
                 let message = err;
                 super::super::record_gateway_request_outcome(
@@ -133,6 +132,7 @@ pub(in super::super) fn proxy_validated_request(
                         original_path: Some(original_path.as_str()),
                         adapted_path: Some(path.as_str()),
                         response_adapter: Some(super::super::ResponseAdapter::Passthrough),
+                        ..Default::default()
                     },
                     Some(key_id.as_str()),
                     None,
@@ -170,11 +170,7 @@ pub(in super::super) fn proxy_validated_request(
             super::super::ResponseAdapter::Passthrough,
             model_for_log.as_deref(),
             reasoning_for_log.as_deref(),
-            Some(aggregate_api.url.as_str()),
-            storage
-                .find_aggregate_api_secret_by_id(aggregate_api.id.as_str())
-                .map_err(|err| err.to_string())?
-                .as_deref(),
+            aggregate_api_candidates,
             request_deadline,
             started_at,
         );

@@ -83,6 +83,7 @@ pub(super) fn maybe_respond_local_models(
                     original_path: Some(original_path),
                     adapted_path: Some(path),
                     response_adapter: Some(response_adapter),
+                    ..Default::default()
                 },
                 Some(key_id),
                 None,
@@ -147,6 +148,7 @@ pub(super) fn maybe_respond_local_models(
             original_path: Some(original_path),
             adapted_path: Some(path),
             response_adapter: Some(response_adapter),
+            ..Default::default()
         },
         Some(key_id),
         None,

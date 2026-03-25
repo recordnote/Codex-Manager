@@ -196,51 +196,6 @@ fn probe_claude_endpoint(
     Ok(status_code)
 }
 
-fn provider_type_for_protocol(protocol_type: &str) -> &'static str {
-    if protocol_type == "anthropic_native" {
-        AGGREGATE_API_PROVIDER_CLAUDE
-    } else {
-        AGGREGATE_API_PROVIDER_CODEX
-    }
-}
-
-pub(crate) fn resolve_aggregate_api_for_rotation(
-    storage: &codexmanager_core::storage::Storage,
-    protocol_type: &str,
-    aggregate_api_id: Option<&str>,
-) -> Result<AggregateApi, String> {
-    if let Some(api_id) = aggregate_api_id
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        if let Some(api) = storage
-            .find_aggregate_api_by_id(api_id)
-            .map_err(|err| err.to_string())?
-        {
-            return Ok(api);
-        }
-    }
-
-    let provider_type = provider_type_for_protocol(protocol_type);
-    let mut candidates = storage
-        .list_aggregate_apis()
-        .map_err(|err| err.to_string())?
-        .into_iter()
-        .filter(|api| {
-            api.status == "active" && normalize_provider_type_value(api.provider_type.as_str()) == provider_type
-        })
-        .collect::<Vec<_>>();
-    candidates.sort_by(|left, right| {
-        left.sort
-            .cmp(&right.sort)
-            .then(right.created_at.cmp(&left.created_at))
-    });
-    candidates
-        .into_iter()
-        .next()
-        .ok_or_else(|| format!("aggregate api not found for provider {provider_type}"))
-}
-
 pub(crate) fn list_aggregate_apis() -> Result<Vec<AggregateApiSummary>, String> {
     let storage = open_storage().ok_or_else(|| "open storage failed".to_string())?;
     let items = storage

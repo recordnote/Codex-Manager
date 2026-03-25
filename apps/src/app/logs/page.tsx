@@ -237,9 +237,13 @@ function resolveDisplayedStatusCode(log: RequestLog): number | null {
 }
 
 function resolveAggregateApiDisplayName(
+  log: RequestLog,
   aggregateApi: AggregateApi | null,
   apiKey: ApiKey | null,
 ): string {
+  if (log.aggregateApiSupplierName && log.aggregateApiSupplierName.trim()) {
+    return log.aggregateApiSupplierName.trim();
+  }
   if (aggregateApi?.supplierName && aggregateApi.supplierName.trim()) {
     return aggregateApi.supplierName.trim();
   }
@@ -250,9 +254,13 @@ function resolveAggregateApiDisplayName(
 }
 
 function resolveAggregateApiTooltipUrl(
+  log: RequestLog,
   aggregateApi: AggregateApi | null,
   apiKey: ApiKey | null,
 ): string {
+  if (log.aggregateApiUrl && log.aggregateApiUrl.trim()) {
+    return log.aggregateApiUrl.trim();
+  }
   if (aggregateApi?.url && aggregateApi.url.trim()) {
     return aggregateApi.url.trim();
   }
@@ -317,12 +325,16 @@ function AccountKeyInfoCell({
     return null;
   })();
   const aggregateApi = aggregateApiById || aggregateApiByUrl;
-  const isAggregateApi = Boolean(aggregateApi);
+  const isAggregateApi = Boolean(
+    log.aggregateApiSupplierName || log.aggregateApiUrl || aggregateApi,
+  );
   const aggregateApiDisplayName = resolveAggregateApiDisplayName(
+    log,
     aggregateApi,
     apiKey,
   );
   const aggregateApiDisplayUrl = resolveAggregateApiTooltipUrl(
+    log,
     aggregateApi,
     apiKey,
   );

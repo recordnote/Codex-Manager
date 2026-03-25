@@ -421,6 +421,12 @@ export function normalizeRequestLog(item: unknown): RequestLog | null {
     reasoningEffort: asString(source.reasoningEffort ?? source.reasoning_effort),
     responseAdapter: asString(source.responseAdapter ?? source.response_adapter),
     upstreamUrl: asString(source.upstreamUrl ?? source.upstream_url),
+    aggregateApiSupplierName:
+      asString(
+        source.aggregateApiSupplierName ?? source.aggregate_api_supplier_name
+      ) || null,
+    aggregateApiUrl:
+      asString(source.aggregateApiUrl ?? source.aggregate_api_url) || null,
     statusCode: toNullableNumber(source.statusCode ?? source.status_code),
     inputTokens: toNullableNumber(source.inputTokens ?? source.input_tokens),
     cachedInputTokens: toNullableNumber(

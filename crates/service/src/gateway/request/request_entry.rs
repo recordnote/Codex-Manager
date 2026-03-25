@@ -55,6 +55,7 @@ pub(crate) fn handle_gateway_request(mut request: Request) -> Result<(), String>
                             original_path: Some(request_path_for_log.as_str()),
                             adapted_path: Some(request_path_for_log.as_str()),
                             response_adapter: None,
+                            ..Default::default()
                         },
                         None,
                         None,

@@ -233,11 +233,11 @@ function AccountHighlightCard({
       : "bg-green-500/20 text-green-500";
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-accent/20 p-4 shadow-sm">
+    <div className="rounded-xl border border-border/40 bg-accent/20 p-4 shadow-sm">
       <div className="flex items-center gap-4">
         <div
           className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
             iconToneClass,
           )}
         >
@@ -270,7 +270,7 @@ function StatProgressCard({
   const percentage = total > 0 ? Math.min(Math.round((value / total) * 100), 100) : 0;
 
   return (
-    <Card className="glass-card overflow-hidden border-none shadow-md backdrop-blur-md transition-all hover:scale-[1.02]">
+    <Card className="glass-card overflow-hidden shadow-sm transition-colors">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={cn("h-4 w-4", color)} />
@@ -294,7 +294,7 @@ function StatProgressCard({
 
 function MetricCard({ title, value, icon: Icon, color, sub, badge }: MetricCardProps) {
   return (
-    <Card className="glass-card overflow-hidden border-none shadow-md backdrop-blur-md transition-all hover:scale-[1.02]">
+    <Card className="glass-card overflow-hidden shadow-sm transition-colors">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={cn("h-4 w-4", color)} />
@@ -318,13 +318,13 @@ function DashboardInitialSkeleton() {
     <div className="space-y-6 animate-in fade-in duration-700">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-36 w-full rounded-2xl" />
+          <Skeleton key={index} className="h-36 w-full rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-52 w-full rounded-2xl" />
+      <Skeleton className="h-52 w-full rounded-xl" />
       <div className="grid gap-6 md:grid-cols-2">
-        <Skeleton className="h-72 w-full rounded-2xl" />
-        <Skeleton className="h-72 w-full rounded-2xl" />
+        <Skeleton className="h-72 w-full rounded-xl" />
+        <Skeleton className="h-72 w-full rounded-xl" />
       </div>
     </div>
   );
@@ -500,11 +500,11 @@ function AdminUsageAnalyticsCard({
 }) {
   const { t } = useI18n();
   if (isLoading) {
-    return <Skeleton className="h-[420px] w-full rounded-2xl" />;
+    return <Skeleton className="h-[420px] w-full rounded-xl" />;
   }
   if (isError) {
     return (
-      <Card className="glass-card border-none shadow-md">
+      <Card className="glass-card shadow-sm">
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle />
@@ -517,7 +517,7 @@ function AdminUsageAnalyticsCard({
   }
   if (!summary) {
     return (
-      <Card className="glass-card border-none shadow-md">
+      <Card className="glass-card shadow-sm">
         <CardContent>
           <Empty className="min-h-40 border bg-muted/20">
             <EmptyHeader>
@@ -547,7 +547,7 @@ function AdminUsageAnalyticsCard({
   );
 
   return (
-    <Card className="glass-card overflow-hidden border-none shadow-md">
+    <Card className="glass-card overflow-hidden shadow-sm">
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
         <div>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -645,7 +645,7 @@ function AdminDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-36 w-full rounded-2xl" />
+            <Skeleton key={index} className="h-36 w-full rounded-xl" />
           ))
         ) : (
           <>
@@ -676,7 +676,7 @@ function AdminDashboard() {
               sub={t("额度耗尽或授权失效")}
             />
 
-            <Card className="overflow-hidden border-none bg-primary/10 shadow-md backdrop-blur-md transition-all hover:scale-[1.02]">
+            <Card className="overflow-hidden bg-primary/10 shadow-sm transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-primary">{t("账号池剩余")}</CardTitle>
                 <PieChart className="h-4 w-4 text-primary" />
@@ -716,7 +716,7 @@ function AdminDashboard() {
         isError={isAdminUsageError}
       />
 
-      <Card className="glass-card overflow-hidden border-none shadow-md backdrop-blur-md">
+      <Card className="glass-card overflow-hidden shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-sm font-medium">{t("模型额度池概览")}</CardTitle>
@@ -833,7 +833,7 @@ function AdminDashboard() {
           },
         ].map((card) =>
           isLoading ? (
-            <Skeleton key={card.title} className="h-32 w-full rounded-2xl" />
+            <Skeleton key={card.title} className="h-32 w-full rounded-xl" />
           ) : (
             <MetricCard key={card.title} {...card} />
           ),
@@ -841,14 +841,14 @@ function AdminDashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="glass-card min-h-[300px] border-none shadow-md">
+        <Card className="glass-card min-h-[300px] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base font-semibold">{t("当前活跃账号")}</CardTitle>
           </CardHeader>
           <CardContent className="flex min-h-[200px] flex-col justify-start">
             {isLoading ? (
               <div className="space-y-4">
-                <Skeleton className="h-28 w-full rounded-2xl" />
+                <Skeleton className="h-28 w-full rounded-xl" />
                 <div className="grid grid-cols-2 gap-4">
                   <Skeleton className="h-32 w-full rounded-xl" />
                   <Skeleton className="h-32 w-full rounded-xl" />
@@ -898,7 +898,7 @@ function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card min-h-[300px] border-none shadow-md">
+        <Card className="glass-card min-h-[300px] shadow-sm">
           <CardHeader>
             <CardTitle className="text-base font-semibold">{t("智能推荐")}</CardTitle>
           </CardHeader>
@@ -908,8 +908,8 @@ function AdminDashboard() {
             </p>
             {isLoading ? (
               <div className="space-y-4">
-                <Skeleton className="h-28 w-full rounded-2xl" />
-                <Skeleton className="h-28 w-full rounded-2xl" />
+                <Skeleton className="h-28 w-full rounded-xl" />
+                <Skeleton className="h-28 w-full rounded-xl" />
               </div>
             ) : recommendations.primaryPick || recommendations.secondaryPick ? (
               <>
@@ -963,7 +963,7 @@ function MemberDashboard() {
 
   if (isError || !summary) {
     return (
-      <Card className="glass-card border-none shadow-md">
+      <Card className="glass-card shadow-sm">
         <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center">
           <AlertTriangle className="h-8 w-8 text-yellow-500" />
           <div className="text-base font-semibold">{t("个人仪表盘暂不可用")}</div>
@@ -1110,7 +1110,7 @@ function MemberKeyUsageCard({
 }) {
   const { t } = useI18n();
   return (
-    <Card className={cn("glass-card border-none shadow-md", className)}>
+    <Card className={cn("glass-card shadow-sm", className)}>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
         <div>
           <CardTitle className="text-base font-semibold">{t("我的平台 Key")}</CardTitle>
@@ -1223,7 +1223,7 @@ function MemberUsageTrendCard({
     [summary.usageTrend7d],
   );
   return (
-    <Card className={cn("glass-card border-none shadow-md", className)}>
+    <Card className={cn("glass-card shadow-sm", className)}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <LineChart className="h-4 w-4 text-primary" />
@@ -1331,7 +1331,7 @@ function MemberAvailableModelsCard({
 }) {
   const { t } = useI18n();
   return (
-    <Card className={cn("glass-card border-none shadow-md", className)}>
+    <Card className={cn("glass-card shadow-sm", className)}>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
         <div>
           <CardTitle className="text-base font-semibold">{t("可用模型")}</CardTitle>
@@ -1390,7 +1390,7 @@ function MemberRecentLogsCard({
 }) {
   const { t } = useI18n();
   return (
-    <Card className={cn("glass-card border-none shadow-md", className)}>
+    <Card className={cn("glass-card shadow-sm", className)}>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
         <div>
           <CardTitle className="text-base font-semibold">{t("近期请求")}</CardTitle>

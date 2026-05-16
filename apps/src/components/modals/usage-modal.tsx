@@ -164,7 +164,7 @@ export default function UsageModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="glass-card grid-rows-[auto_minmax(0,1fr)_auto] border-none p-6"
+        className="glass-card grid-rows-[auto_minmax(0,1fr)_auto] p-6"
         style={{
           height: "min(680px, calc(100vh - 2rem))",
           maxWidth: "none",
@@ -184,7 +184,7 @@ export default function UsageModal({
         </DialogHeader>
 
         <div className="grid min-h-0 gap-4 overflow-y-auto py-4 pr-1">
-          <div className="space-y-3 rounded-2xl border border-primary/5 bg-accent/10 p-4">
+          <div className="space-y-3 rounded-xl border border-primary/5 bg-accent/10 p-4">
             <div className="space-y-1">
               <p className="text-sm font-semibold">{t("套餐信息")}</p>
               <p className="text-[11px] text-muted-foreground">
@@ -216,7 +216,7 @@ export default function UsageModal({
             </div>
           </div>
 
-          <div className="space-y-3 rounded-2xl border border-primary/5 bg-accent/10 p-4">
+          <div className="space-y-3 rounded-xl border border-primary/5 bg-accent/10 p-4">
             <div className="space-y-1">
               <p className="text-sm font-semibold">{t("额度窗口")}</p>
               <p className="text-[11px] text-muted-foreground">

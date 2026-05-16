@@ -484,7 +484,7 @@ export function AppBootstrap({ children }: { children: React.ReactNode }) {
 
       {!isTrayPreview && (showLoading || showError) && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-3xl glass-card p-10 shadow-2xl animate-in fade-in zoom-in duration-500">
+          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-xl glass-card p-10 shadow-sm animate-in fade-in zoom-in duration-500">
             {showLoading ? (
               <>
                 <div className="h-14 w-14 animate-spin rounded-full border-4 border-primary border-t-transparent" />

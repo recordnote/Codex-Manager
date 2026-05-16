@@ -325,7 +325,7 @@ export function ModelCatalogModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card border-none p-0 md:max-w-[750px] xl:max-w-[1360px]">
+      <DialogContent className="glass-card p-0 md:max-w-[750px] xl:max-w-[1360px]">
         <div className="max-h-[84vh] overflow-y-auto p-6">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>

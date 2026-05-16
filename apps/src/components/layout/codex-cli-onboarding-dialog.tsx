@@ -323,7 +323,7 @@ export function CodexCliOnboardingDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         initialFocus={introFocusRef}
-        className="glass-card max-h-[92vh] overflow-hidden border-none p-0 sm:!max-w-[94vw] xl:!max-w-[86rem] 2xl:!max-w-[92rem]"
+        className="glass-card max-h-[92vh] overflow-hidden p-0 sm:!max-w-[94vw] xl:!max-w-[86rem] 2xl:!max-w-[92rem]"
       >
         <div className="flex min-h-0 max-h-[92vh] flex-col">
           <DialogHeader className="shrink-0 border-b border-border/60 px-6 pb-4 pt-6">
@@ -342,7 +342,7 @@ export function CodexCliOnboardingDialog({
                   )}
                 </DialogDescription>
               </div>
-              <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground lg:max-w-sm">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-muted-foreground lg:max-w-sm">
                 {t(
                   "推荐先完整读一遍，再复制模板；这比自己手写平台 Key、provider 名称和地址更不容易出错。",
                 )}
@@ -355,7 +355,7 @@ export function CodexCliOnboardingDialog({
             className="grid min-h-0 gap-5 overflow-y-auto px-6 py-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.85fr)]"
           >
             <div className="space-y-5">
-              <section className="rounded-2xl border border-border/60 bg-background/45 p-5 shadow-sm">
+              <section className="rounded-xl border border-border/60 bg-background/45 p-5 shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-border/50 pb-4">
                   <div className="space-y-1">
                     <h3 className="text-base font-semibold leading-7 text-foreground">
@@ -379,7 +379,7 @@ export function CodexCliOnboardingDialog({
                         variant="outline"
                         onClick={() => setCurrentStep(index)}
                         className={cn(
-                          "h-auto justify-start rounded-2xl px-3 py-3 text-left transition-colors",
+                          "h-auto justify-start rounded-xl px-3 py-3 text-left transition-colors",
                           index === currentStep
                             ? "border-primary/40 bg-primary/10 text-foreground shadow-sm"
                             : "border-border/60 bg-background/70 text-muted-foreground hover:bg-accent/50",
@@ -397,9 +397,9 @@ export function CodexCliOnboardingDialog({
                 </div>
 
                 <div className="mt-4">
-                  <section className="rounded-2xl border border-border/60 bg-background/70 p-4">
+                  <section className="rounded-xl border border-border/60 bg-background/70 p-4">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <activeStep.icon className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 space-y-2">
@@ -425,7 +425,7 @@ export function CodexCliOnboardingDialog({
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-dashed border-border/70 bg-muted/25 p-5">
+              <section className="rounded-xl border border-dashed border-border/70 bg-muted/25 p-5">
                 <h3 className="mb-2 text-base font-semibold leading-7 text-foreground">
                   {t("使用时最容易忽略的几个点")}
                 </h3>
@@ -437,7 +437,7 @@ export function CodexCliOnboardingDialog({
               </section>
             </div>
 
-            <section className="rounded-2xl border border-border/60 bg-background/55 shadow-sm">
+            <section className="rounded-xl border border-border/60 bg-background/55 shadow-sm">
               <div className="flex flex-col gap-3 border-b border-border/60 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-1">
                   <h3 className="text-base font-semibold leading-7 text-foreground">
@@ -480,7 +480,7 @@ export function CodexCliOnboardingDialog({
                       {t("复制 auth.json")}
                     </Button>
                   </div>
-                  <pre className="overflow-auto rounded-2xl border border-border/60 bg-black/90 p-4 font-mono text-xs leading-6 text-slate-100">
+                  <pre className="overflow-auto rounded-xl border border-border/60 bg-black/90 p-4 font-mono text-xs leading-6 text-slate-100">
                     <code>{guideAuthJson}</code>
                   </pre>
                 </div>
@@ -500,7 +500,7 @@ export function CodexCliOnboardingDialog({
                   </div>
                   <pre
                     ref={codeBlockRef}
-                    className="max-h-[34vh] overflow-auto rounded-2xl border border-border/60 bg-black/90 p-4 font-mono text-xs leading-6 text-slate-100"
+                    className="max-h-[34vh] overflow-auto rounded-xl border border-border/60 bg-black/90 p-4 font-mono text-xs leading-6 text-slate-100"
                   >
                     <code>{guideConfig}</code>
                   </pre>

@@ -326,7 +326,7 @@ export function AccountsPageView(props: AccountsPageViewProps) {
   return (
     <div className="space-y-6">
       {!isServiceReady ? (
-        <Card className="glass-card border-none shadow-sm">
+        <Card className="glass-card shadow-sm">
           <CardContent className="pt-6 text-sm text-muted-foreground">
             {t(
               "服务未连接，账号列表与相关操作暂不可用；连接恢复后会自动继续加载。",
@@ -335,7 +335,7 @@ export function AccountsPageView(props: AccountsPageViewProps) {
         </Card>
       ) : null}
 
-      <Card className="glass-card border-none shadow-md backdrop-blur-md">
+      <Card className="glass-card shadow-sm">
         <CardContent className="grid gap-3 pt-0 lg:grid-cols-[200px_auto_minmax(0,1fr)_auto] lg:items-center">
           <div className="min-w-0">
             <Input
@@ -440,7 +440,7 @@ export function AccountsPageView(props: AccountsPageViewProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-64 rounded-xl border border-border/70 bg-popover/95 p-2 shadow-xl backdrop-blur-md"
+                className="w-64 rounded-xl border border-border/70 bg-popover/95 p-2 shadow-sm"
               >
                                   <DropdownMenuGroup>
                   <DropdownMenuLabel className="px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
@@ -761,7 +761,7 @@ export function AccountsPageView(props: AccountsPageViewProps) {
         </DialogContent>
       </Dialog>
 
-      <Card className="glass-card overflow-hidden border-none py-0 shadow-xl backdrop-blur-md">
+      <Card className="glass-card overflow-hidden py-0 shadow-sm">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -1175,7 +1175,7 @@ export function AccountsPageView(props: AccountsPageViewProps) {
           }
         }}
       >
-        <DialogContent className="glass-card max-h-[calc(100vh-2rem)] overflow-hidden border-none p-0 sm:max-w-[560px]">
+        <DialogContent className="glass-card max-h-[calc(100vh-2rem)] overflow-hidden p-0 sm:max-w-[560px]">
           <DialogHeader className="px-6 pt-6">
             <DialogTitle>{t("编辑账号信息")}</DialogTitle>
             <DialogDescription>

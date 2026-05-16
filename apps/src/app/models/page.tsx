@@ -593,7 +593,7 @@ export default function ModelsPage() {
           </div>
         </div>
 
-        <Card className="glass-card border-none shadow-md backdrop-blur-md">
+        <Card className="glass-card shadow-md ">
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -681,7 +681,7 @@ export default function ModelsPage() {
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder={t("搜索 slug、显示名称或描述")}
-                    className="h-full border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    className="h-full bg-transparent px-0 shadow-none focus-visible:ring-0"
                   />
                 </div>
                 <Select value={filter} onValueChange={(value) => setFilter(value as ModelFilter)}>
@@ -932,7 +932,7 @@ export default function ModelsPage() {
             }
           }}
         >
-          <DialogContent className="glass-card max-h-[calc(100vh-2rem)] overflow-y-auto border-none p-0 shadow-xl backdrop-blur-md md:max-w-[980px] xl:max-w-[1180px]">
+          <DialogContent className="glass-card max-h-[calc(100vh-2rem)] overflow-y-auto p-0 shadow-sm  md:max-w-[980px] xl:max-w-[1180px]">
             <div className="p-5 sm:p-6">
           <DialogHeader className="pb-3 pr-8">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

@@ -52,7 +52,7 @@ export function DisclaimerTicker() {
       <Button
         type="button"
         variant="outline"
-        className="group flex w-full max-w-[220px] items-center gap-2 rounded-full border border-border/60 bg-card/35 px-2 py-1.5 text-left shadow-sm backdrop-blur-md transition-colors hover:bg-card/55 xl:max-w-[260px] 2xl:max-w-[340px]"
+        className="group flex w-full max-w-[220px] items-center gap-2 rounded-full border border-border/60 bg-card/35 px-2 py-1.5 text-left shadow-sm transition-colors hover:bg-card/55 xl:max-w-[260px] 2xl:max-w-[340px]"
         onClick={() => setOpen(true)}
         title={t("免责声明")}
       >

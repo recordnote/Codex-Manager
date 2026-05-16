@@ -194,7 +194,7 @@ function SummaryCard({
   return (
     <Card
       size="sm"
-      className="glass-card border-none shadow-sm backdrop-blur-md transition-all hover:-translate-y-0.5"
+      className="glass-card shadow-sm transition-all"
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
         <CardTitle className="text-[13px] font-medium text-muted-foreground">
@@ -235,13 +235,13 @@ function SummaryCard({
 function LogsPageSkeleton() {
   return (
     <div className="space-y-5">
-      <Skeleton className="h-28 w-full rounded-3xl" />
+      <Skeleton className="h-28 w-full rounded-xl" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-32 w-full rounded-3xl" />
+          <Skeleton key={index} className="h-32 w-full rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-[420px] w-full rounded-3xl" />
+      <Skeleton className="h-[420px] w-full rounded-xl" />
     </div>
   );
 }
@@ -1716,7 +1716,7 @@ function LogsPageContent() {
         }}
         className="w-full"
       >
-        <TabsList className="glass-card flex h-11 w-full justify-start overflow-x-auto rounded-xl border-none p-1 no-scrollbar lg:w-fit">
+        <TabsList className="glass-card flex h-11 w-full justify-start overflow-x-auto rounded-xl p-1 no-scrollbar lg:w-fit">
           <TabsTrigger value="requests" className="gap-2 px-5 shrink-0">
             <Database className="h-4 w-4" /> {t("请求日志")}
           </TabsTrigger>
@@ -1728,7 +1728,7 @@ function LogsPageContent() {
         </TabsList>
 
         <TabsContent value="requests" className="space-y-5">
-          <Card className="glass-card border-none shadow-md backdrop-blur-md">
+          <Card className="glass-card shadow-sm">
             <CardContent className="space-y-3 pt-0">
               <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:items-center">
                 <div className="min-w-0">
@@ -1906,7 +1906,7 @@ function LogsPageContent() {
             />
           </div>
 
-          <Card className="glass-card overflow-hidden border-none gap-0 py-0 shadow-xl backdrop-blur-md">
+          <Card className="glass-card overflow-hidden gap-0 py-0 shadow-sm">
             <CardHeader className="flex min-h-1 items-center border-b border-border/40 bg-[var(--table-section-bg)] py-3">
               <div className="flex w-full flex-col gap-1 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -2112,7 +2112,7 @@ function LogsPageContent() {
 
         {isAdminMode ? (
         <TabsContent value="gateway-errors" className="space-y-5">
-          <Card className="glass-card border-none shadow-md backdrop-blur-md">
+          <Card className="glass-card shadow-sm">
             <CardContent className="grid gap-4 pt-0 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
               <div className="space-y-1">
                 <div className="text-sm font-medium text-foreground">
@@ -2179,7 +2179,7 @@ function LogsPageContent() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card overflow-hidden border-none gap-0 py-0 shadow-xl backdrop-blur-md">
+          <Card className="glass-card overflow-hidden gap-0 py-0 shadow-sm">
             <CardHeader className="flex min-h-1 items-center border-b border-border/40 bg-[var(--table-section-bg)] py-3">
               <div className="flex w-full flex-col gap-1 xl:flex-row xl:items-center xl:justify-between">
                 <div>

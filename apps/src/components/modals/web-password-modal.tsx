@@ -245,7 +245,7 @@ export function WebPasswordModal({ open, onOpenChange }: WebPasswordModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card border-none p-0 sm:max-w-[560px]">
+      <DialogContent className="glass-card p-0 sm:max-w-[560px]">
         <DialogHeader className="border-b px-5 py-4">
           <div className="mb-1 flex items-center gap-3">
             <div className="rounded-xl bg-primary/10 p-2 text-primary">

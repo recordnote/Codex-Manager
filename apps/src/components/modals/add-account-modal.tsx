@@ -541,7 +541,7 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="glass-card max-h-[85vh] overflow-hidden border-none p-0 sm:max-w-[640px]">
+      <DialogContent className="glass-card max-h-[85vh] overflow-hidden p-0 sm:max-w-[640px]">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="shrink-0 bg-muted/20 px-6 pt-6">
             <DialogHeader className="mb-4">
@@ -601,7 +601,7 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
                 </Button>
                 {loginUrl && (
                   <div className="mt-3 p-2 rounded-lg bg-primary/5 border border-primary/10 flex items-center gap-2 animate-in fade-in zoom-in duration-300">
-                    <Input value={loginUrl} readOnly className="font-mono text-[10px] h-8 border-none bg-transparent" />
+                    <Input value={loginUrl} readOnly className="font-mono text-[10px] h-8 bg-transparent" />
                     <Button
                       variant="ghost"
                       size="sm"

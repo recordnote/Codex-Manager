@@ -168,7 +168,7 @@ function MemberSettingsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="glass-card border-none shadow-md">
+        <Card className="glass-card shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
               <UserRound className="h-4 w-4 text-primary" />
@@ -198,7 +198,7 @@ function MemberSettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-none shadow-md">
+        <Card className="glass-card shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
               <LockKeyhole className="h-4 w-4 text-primary" />
@@ -239,7 +239,7 @@ function MemberSettingsPage() {
         </Card>
       </div>
 
-      <Card className="glass-card border-none shadow-md">
+      <Card className="glass-card shadow-sm">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Palette className="h-4 w-4 text-primary" />
@@ -256,7 +256,7 @@ function MemberSettingsPage() {
                 variant="outline"
                 onClick={() => setTheme(item.id)}
                 className={cn(
-                  "flex h-auto items-center justify-start gap-3 rounded-2xl border border-border/60 bg-background/45 p-3 text-left transition-colors hover:bg-accent/50",
+                  "flex h-auto items-center justify-start gap-3 rounded-xl border border-border/60 bg-background/45 p-3 text-left transition-colors hover:bg-accent/50",
                   theme === item.id ? "ring-2 ring-primary/40" : "",
                 )}
               >
@@ -1224,7 +1224,7 @@ function AdminSettingsPage() {
         }}
         className="w-full"
       >
-        <TabsList className="glass-card mb-6 flex h-11 w-full justify-start overflow-x-auto rounded-xl border-none p-1 no-scrollbar lg:w-fit">
+        <TabsList className="glass-card mb-6 flex h-11 w-full justify-start overflow-x-auto rounded-xl p-1 no-scrollbar lg:w-fit">
           <TabsTrigger value="general" className="gap-2 px-5 shrink-0">
             <SettingsIcon className="h-4 w-4" /> {t("通用")}
           </TabsTrigger>
@@ -1243,7 +1243,7 @@ function AdminSettingsPage() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <AppWindow className="h-4 w-4 text-primary" />
@@ -1252,7 +1252,7 @@ function AdminSettingsPage() {
               <CardDescription>{t("控制应用启动和窗口行为")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-background/45 p-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-background/45 p-4 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
                   <Label>{updateActionLabel}</Label>
                   <p className="text-xs text-muted-foreground">
@@ -1336,7 +1336,7 @@ function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Globe className="h-4 w-4 text-primary" />
@@ -1385,7 +1385,7 @@ function AdminSettingsPage() {
                 </Select>
               </div>
 
-              <div className="rounded-2xl border border-border/50 bg-background/45 p-4 text-sm">
+              <div className="rounded-xl border border-border/50 bg-background/45 p-4 text-sm">
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-muted-foreground">{t("当前访问地址")}</span>
                   <code className="text-xs text-primary">
@@ -1412,7 +1412,7 @@ function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-primary" />
@@ -1423,7 +1423,7 @@ function AdminSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-background/45 p-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-background/45 p-4 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Label>{t("当前访问方式")}</Label>
@@ -1451,7 +1451,7 @@ function AdminSettingsPage() {
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-6">
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Palette className="h-4 w-4 text-primary" />
@@ -1473,9 +1473,9 @@ function AdminSettingsPage() {
                       variant="outline"
                       onClick={() => handleAppearancePresetChange(item.id)}
                       className={cn(
-                        "group relative h-auto justify-start rounded-2xl p-4 text-left transition-all duration-300 hover:-translate-y-0.5",
+                        "group relative h-auto justify-start rounded-xl p-4 text-left transition-all duration-300",
                         isActive
-                          ? "border-primary bg-primary/10 shadow-lg ring-1 ring-primary"
+                          ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary"
                           : "border-border/60 bg-background/50 hover:bg-accent/30",
                       )}
                     >
@@ -1529,7 +1529,7 @@ function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Palette className="h-4 w-4 text-primary" />
@@ -1548,14 +1548,14 @@ function AdminSettingsPage() {
                     variant="ghost"
                     onClick={() => handleThemeChange(item.id)}
                     className={cn(
-                      "group relative h-auto flex-col items-center gap-2.5 rounded-2xl border p-4 transition-all duration-300 hover:scale-105",
+                      "group relative h-auto flex-col items-center gap-2.5 rounded-xl border p-4 transition-all duration-300 hover:bg-accent/40",
                       theme === item.id
-                        ? "border-primary bg-primary/10 shadow-lg ring-1 ring-primary"
+                        ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary"
                         : "border-transparent bg-muted/20 hover:bg-accent/40",
                     )}
                   >
                     <div
-                      className="h-10 w-10 rounded-full border-2 border-white/20 shadow-md"
+                      className="h-10 w-10 rounded-full border-2 border-white/20 shadow-sm"
                       style={{ backgroundColor: item.color }}
                     />
                     <span
@@ -1581,7 +1581,7 @@ function AdminSettingsPage() {
         </TabsContent>
 
         <TabsContent value="gateway" className="space-y-4">
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">{t("网关策略")}</CardTitle>
               <CardDescription>{t("配置账号选路和请求头处理方式")}</CardDescription>
@@ -1857,7 +1857,7 @@ function AdminSettingsPage() {
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-4">
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">{t("后台任务线程")}</CardTitle>
               <CardDescription>{t("管理自动轮询和保活任务；")}</CardDescription>
@@ -1933,7 +1933,7 @@ function AdminSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card border-none shadow-md">
+          <Card className="glass-card shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <SettingsIcon className="h-4 w-4 text-primary" />
@@ -2034,7 +2034,7 @@ function AdminSettingsPage() {
             open={workerAdvancedDialogOpen}
             onOpenChange={setWorkerAdvancedDialogOpen}
           >
-            <DialogContent className="glass-card border-none sm:max-w-2xl">
+            <DialogContent className="glass-card sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>{t("高级参数")}</DialogTitle>
                 <DialogDescription>
@@ -2133,7 +2133,7 @@ function AdminSettingsPage() {
         </TabsContent>
 
         <TabsContent value="env" className="space-y-4">
-          <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h3 className="text-sm font-semibold">{t("环境变量配置")}</h3>
               <p className="text-sm leading-6 text-muted-foreground">
@@ -2155,7 +2155,7 @@ function AdminSettingsPage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-[300px_1fr]">
-            <Card className="glass-card flex h-[500px] flex-col border-none shadow-md">
+            <Card className="glass-card flex h-[500px] flex-col shadow-sm">
               <CardHeader className="pb-3">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -2213,7 +2213,7 @@ function AdminSettingsPage() {
               </CardContent>
             </Card>
 
-            <Card className="glass-card min-h-[500px] border-none shadow-md">
+            <Card className="glass-card min-h-[500px] shadow-sm">
               {selectedEnvKey ? (
                 <>
                   <CardHeader>
@@ -2331,7 +2331,7 @@ function AdminSettingsPage() {
       >
         <DialogContent
           showCloseButton={false}
-          className="glass-card border-none p-6 sm:max-w-[480px]"
+          className="glass-card p-6 sm:max-w-[480px]"
         >
           <DialogHeader>
             <DialogTitle>
@@ -2351,7 +2351,7 @@ function AdminSettingsPage() {
           </DialogHeader>
 
           <div className="space-y-3 text-sm">
-            <div className="rounded-2xl border border-border/50 bg-background/45 p-4">
+            <div className="rounded-xl border border-border/50 bg-background/45 p-4">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">{t("当前版本")}</span>
                 <span className="font-medium">
@@ -2386,11 +2386,11 @@ function AdminSettingsPage() {
             </div>
 
             {preparedUpdate ? null : updateDialogCheck?.reason ? (
-              <div className="rounded-2xl border border-border/50 bg-muted/40 p-4 text-xs leading-5 text-muted-foreground">
+              <div className="rounded-xl border border-border/50 bg-muted/40 p-4 text-xs leading-5 text-muted-foreground">
                 {updateDialogCheck.reason}
               </div>
             ) : (
-              <div className="rounded-2xl border border-border/50 bg-muted/40 p-4 text-xs leading-5 text-muted-foreground">
+              <div className="rounded-xl border border-border/50 bg-muted/40 p-4 text-xs leading-5 text-muted-foreground">
                 {t("建议先下载更新包，下载完成后再执行安装或重启更新。")}
               </div>
             )}

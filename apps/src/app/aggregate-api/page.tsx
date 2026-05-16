@@ -959,7 +959,7 @@ export default function AggregateApiPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {!isServiceReady ? (
-        <Card className="glass-card border-none shadow-sm">
+        <Card className="glass-card shadow-sm">
           <CardContent className="pt-6 text-sm text-muted-foreground">
             {t("服务未连接")}
           </CardContent>
@@ -975,7 +975,7 @@ export default function AggregateApiPage() {
       </div>
 
       <div className="space-y-4">
-        <Card className="glass-card border-none shadow-xl backdrop-blur-md">
+        <Card className="glass-card shadow-sm">
           <CardContent className="px-4 ">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -1048,7 +1048,7 @@ export default function AggregateApiPage() {
                   {t("刷新余额")}
                 </Button>
                 <Button
-                  className="h-10 gap-2 shadow-lg shadow-primary/20"
+                  className="h-10 gap-2 shadow-sm shadow-primary/20"
                   onClick={openCreateModal}
                   disabled={!isServiceReady}
                 >
@@ -1059,7 +1059,7 @@ export default function AggregateApiPage() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card overflow-hidden border-none py-0 shadow-xl backdrop-blur-md">
+        <Card className="glass-card overflow-hidden py-0 shadow-sm">
           <CardContent className="p-0">
             <Table className="w-full table-fixed">
               <TableHeader>

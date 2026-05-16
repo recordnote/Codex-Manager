@@ -53,7 +53,7 @@ function PagePanelFallback({ title }: { title: string }) {
   return (
     <div
       className={cn(
-        "fixed inset-y-0 right-0 z-40 overflow-hidden bg-white/28 backdrop-blur-md",
+        "fixed inset-y-0 right-0 z-40 overflow-hidden bg-white/28 ",
         isSidebarOpen ? "left-56" : "left-16",
       )}
     >

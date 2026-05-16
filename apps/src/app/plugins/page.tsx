@@ -336,7 +336,7 @@ function PluginCard({
   t: TranslateFn;
 }) {
   return (
-    <Card className="glass-card border-none shadow-sm">
+    <Card className="glass-card shadow-sm">
       <CardHeader className="space-y-2 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -427,7 +427,7 @@ function InstalledPluginCard({
   t: TranslateFn;
 }) {
   return (
-    <Card className="glass-card border-none shadow-sm">
+    <Card className="glass-card shadow-sm">
       <CardHeader className="space-y-2 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -756,7 +756,7 @@ export default function PluginsPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Rocket className="h-5 w-5" />
           </div>
           <div>
@@ -768,7 +768,7 @@ export default function PluginsPage() {
         </div>
       </div>
 
-      <Card className="glass-card border-none shadow-sm">
+      <Card className="glass-card shadow-sm">
         <CardHeader>
           <CardTitle>{t("市场层")}</CardTitle>
           <CardDescription>
@@ -786,7 +786,7 @@ export default function PluginsPage() {
                   setMarketModeDraft(normalizeMarketMode(option.value))
                 }
                 className={cn(
-                  "h-auto justify-start rounded-2xl p-4 text-left transition-all",
+                  "h-auto justify-start rounded-xl p-4 text-left transition-all",
                   marketMode === option.value
                     ? "border-primary/40 bg-primary/10 shadow-sm"
                     : "border-border/60 bg-background/40 hover:bg-background/70",
@@ -831,7 +831,7 @@ export default function PluginsPage() {
                   </Button>
                 </div>
               </div>
-              <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
                 {catalogQuery.data?.sourceUrl
                   ? t("当前使用自定义源：{sourceUrl}", {
                       sourceUrl: catalogQuery.data.sourceUrl,
@@ -840,14 +840,14 @@ export default function PluginsPage() {
               </div>
             </>
           ) : (
-            <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
               {t("当前使用内置精选市场，默认只显示官方内置脚本插件。")}
             </div>
           )}
         </CardContent>
       </Card>
 
-      <Card className="glass-card border-none shadow-sm">
+      <Card className="glass-card shadow-sm">
         <CardHeader className="space-y-4">
           <div>
             <CardTitle>{t("插件列表")}</CardTitle>
@@ -887,7 +887,7 @@ export default function PluginsPage() {
           {catalogQuery.isLoading || installedQuery.isLoading ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 2 }).map((_, index) => (
-                <Skeleton key={index} className="h-72 rounded-2xl" />
+                <Skeleton key={index} className="h-72 rounded-xl" />
               ))}
             </div>
           ) : pluginViewFilter === "installed" ? (
@@ -1004,7 +1004,7 @@ export default function PluginsPage() {
       >
         <DialogContent
           showCloseButton={false}
-          className="glass-card max-h-[85vh] overflow-hidden border-none p-0 sm:max-w-[860px] lg:max-w-[920px]"
+          className="glass-card max-h-[85vh] overflow-hidden p-0 sm:max-w-[860px] lg:max-w-[920px]"
         >
           {selectedDetail ? (
             <div className="flex max-h-[85vh] flex-col">
@@ -1089,7 +1089,7 @@ export default function PluginsPage() {
 
               <div className="max-h-[calc(85vh-154px)] overflow-y-auto px-6 py-6">
                 <div className="grid gap-4">
-                  <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                  <div className="rounded-xl border border-border/60 bg-background/60 p-4">
                     <div className="mb-2 text-sm font-medium">{t("权限")}</div>
                     <div>
                       {selectedDetail.permissions.length > 0 ? (
@@ -1108,7 +1108,7 @@ export default function PluginsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                  <div className="rounded-xl border border-border/60 bg-background/60 p-4">
                     <div className="mb-2 text-sm font-medium">{t("任务")}</div>
                     <div className="space-y-2">
                       {selectedTasks.length > 0 ? (
@@ -1234,7 +1234,7 @@ export default function PluginsPage() {
                   </div>
 
                   {selectedPlugin?.kind === "installed" ? (
-                    <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border/60 bg-background/60 p-4">
                       <div className="mb-2 text-sm font-medium">{t("最近运行")}</div>
                       <div className="space-y-2">
                         {selectedLogs.length > 0 ? (

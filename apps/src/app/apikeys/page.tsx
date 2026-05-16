@@ -174,7 +174,7 @@ function ApiKeyStatCard({
   sub: string;
 }) {
   return (
-    <Card className="glass-card overflow-hidden border-none shadow-md backdrop-blur-md transition-all hover:scale-[1.02]">
+    <Card className="glass-card overflow-hidden shadow-sm transition-colors">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={color} />
@@ -523,7 +523,7 @@ export default function ApiKeysPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {!isServiceReady ? (
-        <Card className="glass-card border-none shadow-sm">
+        <Card className="glass-card shadow-sm">
           <CardContent className="pt-6 text-sm text-muted-foreground">
             {t("服务未连接")}
           </CardContent>
@@ -556,7 +556,7 @@ export default function ApiKeysPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-[min(92vw,390px)] rounded-xl border border-border/70 bg-popover/95 p-2 shadow-xl backdrop-blur-md"
+              className="w-[min(92vw,390px)] rounded-xl border border-border/70 bg-popover/95 p-2 shadow-sm"
             >
                                   <DropdownMenuGroup>
                 <DropdownMenuLabel className="px-2 py-1 text-[11px] uppercase text-muted-foreground/80">
@@ -601,7 +601,7 @@ export default function ApiKeysPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
-            className="h-10 gap-2 shadow-lg shadow-primary/20"
+            className="h-10 gap-2 shadow-sm shadow-primary/20"
             onClick={openCreateModal}
             disabled={!isServiceReady}
           >
@@ -613,8 +613,8 @@ export default function ApiKeysPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {isLoading || showOverviewLoading ? (
           <>
-            <Skeleton className="h-32 w-full rounded-2xl" />
-            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-32 w-full rounded-xl" />
+            <Skeleton className="h-32 w-full rounded-xl" />
           </>
         ) : (
           <>
@@ -636,7 +636,7 @@ export default function ApiKeysPage() {
         )}
       </div>
 
-      <Card className="glass-card overflow-hidden border-none py-0 shadow-xl backdrop-blur-md">
+      <Card className="glass-card overflow-hidden py-0 shadow-sm">
         <CardContent className="p-0">
           <Table className="min-w-[1160px]">
             <TableHeader>

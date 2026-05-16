@@ -193,7 +193,7 @@ export function Header() {
             <div className="flex items-center gap-2 rounded-lg border bg-card/30 px-2.5 py-1.5 shadow-sm">
               <span className="text-xs font-medium text-muted-foreground">{t("监听端口")}</span>
               <Input
-                className="h-7 w-16 border-none bg-transparent p-0 text-xs font-mono focus-visible:ring-0"
+                className="h-7 w-16 bg-transparent p-0 text-xs font-mono focus-visible:ring-0"
                 placeholder="48760"
                 value={portInput}
                 onChange={(event) => {

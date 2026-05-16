@@ -181,7 +181,7 @@ function StatCard({
   icon: typeof ShieldCheck;
 }) {
   return (
-    <Card className="glass-card border-none shadow-sm">
+    <Card className="glass-card shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
         <div className="space-y-1">
           <CardDescription>{title}</CardDescription>
@@ -623,7 +623,7 @@ export default function AccountManagerPage() {
             {t("刷新")}
           </Button>
           <Button
-            className="h-10 gap-2 shadow-lg shadow-primary/20"
+            className="h-10 gap-2 shadow-sm shadow-primary/20"
             disabled={!canAccessManagementRpc}
             onClick={() => setCreateDialogOpen(true)}
           >
@@ -634,7 +634,7 @@ export default function AccountManagerPage() {
       </div>
 
       {!canAccessManagementRpc ? (
-        <Card className="glass-card border-none shadow-md">
+        <Card className="glass-card shadow-sm">
           <CardContent className="flex items-start gap-3 py-5">
             <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
             <div className="space-y-1">
@@ -678,7 +678,7 @@ export default function AccountManagerPage() {
         />
       </div>
 
-      <Card className="glass-card overflow-hidden border-none py-0 shadow-xl backdrop-blur-md">
+      <Card className="glass-card overflow-hidden py-0 shadow-sm">
         <CardHeader className="border-b bg-background/35 py-4">
           <CardTitle>{t("登录账号")}</CardTitle>
           <CardDescription>
@@ -791,7 +791,7 @@ export default function AccountManagerPage() {
       </Card>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="glass-card border-none sm:max-w-[560px]">
+        <DialogContent className="glass-card sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{t("新建登录账号")}</DialogTitle>
             <DialogDescription>
@@ -923,7 +923,7 @@ export default function AccountManagerPage() {
           }
         }}
       >
-        <DialogContent className="glass-card border-none sm:max-w-[560px]">
+        <DialogContent className="glass-card sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{t("编辑登录账号")}</DialogTitle>
             <DialogDescription>
@@ -1042,7 +1042,7 @@ export default function AccountManagerPage() {
           }
         }}
       >
-        <DialogContent className="glass-card max-h-[85vh] overflow-y-auto border-none sm:max-w-[760px]">
+        <DialogContent className="glass-card max-h-[85vh] overflow-y-auto sm:max-w-[760px]">
           <DialogHeader>
             <DialogTitle>{t("成员用量详情")}</DialogTitle>
             <DialogDescription>
@@ -1093,7 +1093,7 @@ export default function AccountManagerPage() {
           }
         }}
       >
-        <DialogContent className="glass-card border-none sm:max-w-[480px]">
+        <DialogContent className="glass-card sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>{t("钱包充值")}</DialogTitle>
             <DialogDescription>

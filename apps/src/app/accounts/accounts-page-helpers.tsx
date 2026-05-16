@@ -254,7 +254,7 @@ export function QuotaOverviewCell({ items }: { items: QuotaSummaryItem[] }) {
         side="right"
         align="center"
         sideOffset={10}
-        className="max-w-[340px] rounded-2xl bg-background p-3 text-foreground shadow-2xl"
+        className="max-w-[340px] rounded-xl bg-background p-3 text-foreground shadow-2xl"
       >
         <div className="space-y-3">
           <div className="space-y-1">

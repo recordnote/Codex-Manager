@@ -182,6 +182,8 @@ pub struct AccountSummary {
     pub sort: i64,
     pub status: String,
     pub status_reason: Option<String>,
+    #[serde(default)]
+    pub has_token: bool,
     pub plan_type: Option<String>,
     pub plan_type_raw: Option<String>,
     pub has_subscription: Option<bool>,

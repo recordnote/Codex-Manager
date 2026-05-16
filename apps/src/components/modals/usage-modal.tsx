@@ -5,10 +5,12 @@ import {
   Clock,
   Database,
   KeyRound,
+  ShieldAlert,
   type LucideIcon,
   RefreshCw,
   Zap,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
   DialogClose,
@@ -193,6 +195,16 @@ export default function UsageModal({
         </DialogHeader>
 
         <div className="grid min-h-0 gap-4 overflow-y-auto py-4 pr-1">
+          {!account.hasToken ? (
+            <Alert variant="destructive">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>{t("缺少授权 Token")}</AlertTitle>
+              <AlertDescription>
+                {t("该账号只有用量快照，当前不能参与模型刷新或网关转发。请重新登录或刷新 AT/RT 后再使用。")}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           <Card size="sm">
             <CardHeader>
               <CardTitle>{t("套餐信息")}</CardTitle>

@@ -81,6 +81,21 @@ pub(crate) fn read_managed_model_catalog(
 
     match gateway::fetch_models_for_picker() {
         Ok(models) => {
+            let models = normalize_models_response(models);
+            if !models_response_has_catalog_text_model(&models) {
+                if managed_catalog_has_catalog_text_model(&cached_catalog) {
+                    log::warn!(
+                        "event=model_catalog_refresh_ignored_empty_remote cached_models={}",
+                        cached_catalog.items.len()
+                    );
+                    return Ok(ensure_codex_image_tool_model_in_catalog(&cached_catalog));
+                }
+                if refresh_remote {
+                    return Err(
+                        "远端模型目录没有返回可用 Codex 文本模型，已拒绝覆盖本地目录".to_string(),
+                    );
+                }
+            }
             let merged_catalog = ensure_codex_image_tool_model_in_catalog(
                 &merge_managed_model_catalog(cached_catalog.clone(), models),
             );
@@ -90,7 +105,7 @@ pub(crate) fn read_managed_model_catalog(
             Ok(merged_catalog)
         }
         Err(err) => {
-            if !cached.is_empty() {
+            if managed_catalog_has_catalog_text_model(&cached_catalog) {
                 return Ok(ensure_codex_image_tool_model_in_catalog(&cached_catalog));
             }
             if refresh_remote {
@@ -102,6 +117,25 @@ pub(crate) fn read_managed_model_catalog(
             }
         }
     }
+}
+
+fn is_codex_image_tool_slug(slug: &str) -> bool {
+    slug.trim().eq_ignore_ascii_case(CODEX_IMAGE_TOOL_MODEL)
+}
+
+fn model_is_catalog_text_model(model: &ModelInfo) -> bool {
+    !is_codex_image_tool_slug(model.slug.as_str())
+}
+
+fn models_response_has_catalog_text_model(models: &ModelsResponse) -> bool {
+    models.models.iter().any(model_is_catalog_text_model)
+}
+
+fn managed_catalog_has_catalog_text_model(catalog: &ManagedModelCatalogResult) -> bool {
+    catalog
+        .items
+        .iter()
+        .any(|item| model_is_catalog_text_model(&item.model))
 }
 
 pub(crate) fn read_managed_model_catalog_from_storage(

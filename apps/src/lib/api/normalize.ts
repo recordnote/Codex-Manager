@@ -393,7 +393,9 @@ export function normalizeAccount(item: unknown, usage?: AccountUsage | null): Ac
   const groupName = asString(source.groupName ?? source.group_name);
   const status = asString(source.status);
   const statusReason = asString(source.statusReason ?? source.status_reason);
-  const availability = calcAvailability(usage, { status, statusReason });
+  const rawHasToken = source.hasToken ?? source.has_token;
+  const hasToken = typeof rawHasToken === "boolean" ? Boolean(rawHasToken) : true;
+  const availability = calcAvailability(usage, { status, statusReason, hasToken });
   const usageBuckets = getUsageDisplayBuckets(usage);
 
   return {
@@ -407,6 +409,7 @@ export function normalizeAccount(item: unknown, usage?: AccountUsage | null): Ac
     sort: asInteger(source.sort ?? source.priority, 0, 0),
     status,
     statusReason,
+    hasToken,
     planType:
       asString(source.planType ?? source.plan_type ?? source.subscriptionPlan ?? source.subscription_plan) ||
       null,

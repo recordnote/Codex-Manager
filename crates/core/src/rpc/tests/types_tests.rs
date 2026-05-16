@@ -26,6 +26,7 @@ fn account_summary_serialization_matches_compact_contract() {
         sort: 10,
         status: "active".to_string(),
         status_reason: Some("account_deactivated".to_string()),
+        has_token: true,
         plan_type: Some("team".to_string()),
         plan_type_raw: None,
         has_subscription: Some(true),
@@ -50,6 +51,7 @@ fn account_summary_serialization_matches_compact_contract() {
         "sort",
         "status",
         "statusReason",
+        "hasToken",
         "note",
         "tags",
     ] {
@@ -104,6 +106,7 @@ fn account_list_result_serialization_includes_pagination_fields() {
             sort: 10,
             status: "active".to_string(),
             status_reason: Some("account_deactivated".to_string()),
+            has_token: true,
             plan_type: Some("team".to_string()),
             plan_type_raw: None,
             has_subscription: Some(true),

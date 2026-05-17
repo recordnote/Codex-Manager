@@ -140,6 +140,90 @@ fn gateway_rejects_api_key_after_quota_limit() {
 }
 
 #[test]
+fn gateway_reports_wallet_quota_exhaustion_in_chinese() {
+    let _lock = test_env_guard();
+    let dir = new_test_dir("codexmanager-gateway-wallet-quota");
+    let db_path: PathBuf = dir.join("codexmanager.db");
+    let _guard = EnvGuard::set("CODEXMANAGER_DB_PATH", db_path.to_string_lossy().as_ref());
+
+    let platform_key = "pk_wallet_quota_exhausted";
+    let storage = Storage::open(&db_path).expect("open db");
+    storage.init().expect("init schema");
+    let now = now_ts();
+    storage
+        .set_app_setting("distribution.enabled", "true", now)
+        .expect("enable distribution");
+    storage
+        .insert_app_user(&AppUser {
+            id: "usr_wallet_quota_exhausted".to_string(),
+            username: "wallet-quota-member".to_string(),
+            display_name: None,
+            password_hash: "test-password-hash".to_string(),
+            role: "member".to_string(),
+            status: "active".to_string(),
+            created_at: now,
+            updated_at: now,
+            last_login_at: None,
+        })
+        .expect("insert app user");
+    storage
+        .insert_api_key(&ApiKey {
+            id: "gk_wallet_quota_exhausted".to_string(),
+            name: Some("wallet-quota".to_string()),
+            model_slug: None,
+            reasoning_effort: None,
+            service_tier: None,
+            rotation_strategy: "account_rotation".to_string(),
+            aggregate_api_id: None,
+            account_plan_filter: None,
+            aggregate_api_url: None,
+            client_type: "codex".to_string(),
+            protocol_type: "openai_compat".to_string(),
+            auth_scheme: "authorization_bearer".to_string(),
+            upstream_base_url: None,
+            static_headers_json: None,
+            key_hash: hash_platform_key_for_test(platform_key),
+            status: "active".to_string(),
+            created_at: now,
+            last_used_at: None,
+        })
+        .expect("insert api key");
+    storage
+        .upsert_api_key_owner(&ApiKeyOwner {
+            key_id: "gk_wallet_quota_exhausted".to_string(),
+            owner_kind: "user".to_string(),
+            owner_user_id: Some("usr_wallet_quota_exhausted".to_string()),
+            project_id: None,
+            updated_at: now,
+        })
+        .expect("insert api key owner");
+    storage
+        .ensure_wallet_for_owner(
+            "wlt_wallet_quota_exhausted",
+            "user",
+            "usr_wallet_quota_exhausted",
+        )
+        .expect("ensure zero wallet");
+
+    let server = TestServer::start();
+    let req_body = r#"{"model":"gpt-5.3-codex","input":"hello"}"#;
+    let (status, body) = post_http_raw(
+        &server.addr,
+        "/v1/responses",
+        req_body,
+        &[
+            ("Content-Type", "application/json"),
+            ("Authorization", &format!("Bearer {platform_key}")),
+        ],
+    );
+    assert_eq!(status, 429, "response body: {body}");
+    assert!(
+        body.contains("额度不足，请联系管理员"),
+        "gateway should report wallet quota exhaustion in Chinese, got {body}"
+    );
+}
+
+#[test]
 fn gateway_reports_platform_model_route_errors() {
     let _lock = test_env_guard();
     let dir = new_test_dir("codexmanager-gateway-model-route-errors");

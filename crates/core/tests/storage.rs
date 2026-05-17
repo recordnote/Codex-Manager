@@ -1,7 +1,7 @@
 use codexmanager_core::storage::{
     now_ts, Account, AggregateApi, ApiKey, ApiKeyOwner, AppUser, AppWalletLedgerEntry, Event,
-    ModelSourceMapping, ModelSourceModel, RequestLog, RequestTokenStat, Storage, Token,
-    UsageSnapshotRecord,
+    ModelGroup, ModelSourceMapping, ModelSourceModel, RequestLog, RequestTokenStat, Storage, Token,
+    UsageSnapshotRecord, UserModelGroup,
 };
 
 /// 函数 `storage_can_insert_account_and_token`
@@ -1596,6 +1596,67 @@ fn request_token_stats_rollups_use_owner_and_actual_source_precedence() {
             .total_tokens,
         40
     );
+}
+
+#[test]
+fn delete_app_user_removes_model_group_assignments() {
+    let storage = Storage::open_in_memory().expect("open in memory");
+    storage.init().expect("init schema");
+    let now = now_ts();
+
+    storage
+        .insert_app_user(&AppUser {
+            id: "delete-user".to_string(),
+            username: "delete-user".to_string(),
+            display_name: None,
+            password_hash: "hash".to_string(),
+            role: "member".to_string(),
+            status: "active".to_string(),
+            created_at: now,
+            updated_at: now,
+            last_login_at: None,
+        })
+        .expect("insert user");
+    storage
+        .upsert_model_group(&ModelGroup {
+            id: "delete-group".to_string(),
+            name: "Delete Group".to_string(),
+            description: None,
+            status: "active".to_string(),
+            sort: 0,
+            is_default: false,
+            rate_multiplier_millis: 1000,
+            created_at: now,
+            updated_at: now,
+        })
+        .expect("insert model group");
+    storage
+        .replace_user_model_groups_for_group(
+            "delete-group",
+            &[UserModelGroup {
+                user_id: "delete-user".to_string(),
+                group_id: "delete-group".to_string(),
+                status: "active".to_string(),
+                expires_at: None,
+                created_at: now,
+                updated_at: now,
+            }],
+        )
+        .expect("assign model group");
+
+    let deleted = storage
+        .delete_app_user("delete-user")
+        .expect("delete app user");
+
+    assert_eq!(deleted, 1);
+    assert!(storage
+        .find_app_user_by_id("delete-user")
+        .expect("find deleted user")
+        .is_none());
+    assert!(storage
+        .list_user_model_groups_for_user("delete-user")
+        .expect("list deleted user model groups")
+        .is_empty());
 }
 
 /// 函数 `clear_request_logs_keeps_token_stats_for_usage_summary`

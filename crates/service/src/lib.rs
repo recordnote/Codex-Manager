@@ -124,15 +124,15 @@ pub use app_settings::{
 pub use auth::{
     api_key_belongs_to_user, app_auth_status_value, app_session_result, billing_mode_lock_status,
     bootstrap_app_admin, build_web_access_session_token, change_app_user_password, create_app_user,
-    current_web_access_password_hash, current_web_auth_mode, distribution_enabled,
+    current_web_access_password_hash, current_web_auth_mode, delete_app_user, distribution_enabled,
     list_api_key_ids_for_user, list_api_key_owners, list_app_users, login_app_user,
     logout_app_user_session, resolve_app_user_session, set_api_key_owner, set_distribution_enabled,
     set_web_access_password, set_web_auth_mode, update_app_user, update_app_user_profile,
     verify_web_access_password, wallet_charge_for_request, wallet_precheck_for_api_key,
-    wallet_top_up, web_access_auth_status_value, web_access_password_configured,
-    web_auth_status_value, ApiKeyOwnerResult, AppLoginResult, AppSessionResult,
-    AppSessionUserResult, AppUserCreateInput, AppUserPublicResult, AppUserUpdateInput,
-    AppWalletResult, BillingModeLockResult,
+    wallet_set_available_credit, wallet_top_up, web_access_auth_status_value,
+    web_access_password_configured, web_auth_status_value, ApiKeyOwnerResult, AppLoginResult,
+    AppSessionResult, AppSessionUserResult, AppUserCreateInput, AppUserPublicResult,
+    AppUserUpdateInput, AppWalletResult, BillingModeLockResult,
 };
 pub use auth::{rpc_auth_token, rpc_auth_token_matches};
 pub use lifecycle::bootstrap::{initialize_storage_if_needed, portable};

@@ -258,6 +258,9 @@ export const appClient = {
     });
     return readAppUser(result);
   },
+  async deleteAppUser(id: string): Promise<void> {
+    await invoke<unknown>("service_account_manager_user_delete", { id });
+  },
   async topUpWallet(payload: {
     ownerKind: string;
     ownerId: string;
@@ -265,6 +268,18 @@ export const appClient = {
     note?: string | null;
   }): Promise<AppWallet | null> {
     const result = await invoke<unknown>("service_account_manager_wallet_top_up", payload);
+    return readWallet(result);
+  },
+  async setWalletAvailable(payload: {
+    ownerKind: string;
+    ownerId: string;
+    availableCreditMicros: number;
+    note?: string | null;
+  }): Promise<AppWallet | null> {
+    const result = await invoke<unknown>(
+      "service_account_manager_wallet_set_available",
+      payload
+    );
     return readWallet(result);
   },
   async listApiKeyOwners(): Promise<ApiKeyOwner[]> {

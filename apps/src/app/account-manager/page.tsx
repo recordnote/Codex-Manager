@@ -6,18 +6,32 @@ import {
   AlertCircle,
   BarChart3,
   KeyRound,
-  LineChart,
+  LineChart as LineChartIcon,
   Pencil,
   Plus,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   UserPlus,
   UsersRound,
   WalletCards,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import {
   Card,
   CardContent,
@@ -199,60 +213,97 @@ function StatCard({
 }
 
 function UserUsageTrendLine({ summary }: { summary: MemberDashboardSummary }) {
-  const points = summary.usageTrend7d;
-  const maxTokens = Math.max(1, ...points.map((item) => item.totalTokens));
-  const width = 320;
-  const height = 112;
-  const padding = 12;
-  const plotWidth = width - padding * 2;
-  const plotHeight = height - padding * 2;
-  const coords = points.map((item, index) => {
-    const x =
-      points.length <= 1 ? width / 2 : padding + (index / (points.length - 1)) * plotWidth;
-    const y = padding + plotHeight - (item.totalTokens / maxTokens) * plotHeight;
-    return { x, y, item };
-  });
-  const path = coords
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
+  const chartConfig = {
+    totalTokens: {
+      label: "Token",
+      color: "var(--primary)",
+    },
+  } satisfies ChartConfig;
+  const chartData = summary.usageTrend7d.map((item) => ({
+    date: formatShortDate(item.dayStartTs),
+    totalTokens: item.totalTokens,
+    estimatedCostUsd: item.estimatedCostUsd,
+  }));
 
   return (
-    <div className="rounded-xl bg-background/35 p-3">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-36 w-full text-primary"
-        role="img"
-        aria-label="user token usage line chart"
+    <ChartContainer
+      config={chartConfig}
+      className="h-56 w-full rounded-xl bg-background/30 p-3"
+      initialDimension={{ width: 640, height: 224 }}
+    >
+      <AreaChart
+        accessibilityLayer
+        data={chartData}
+        margin={{ top: 18, right: 14, left: 10, bottom: 4 }}
       >
-        <path
-          d={path}
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="3"
+        <defs>
+          <linearGradient id="memberFillTotalTokens" x1="0" y1="0" x2="0" y2="1">
+            <stop
+              offset="5%"
+              stopColor="var(--color-totalTokens)"
+              stopOpacity={0.32}
+            />
+            <stop
+              offset="95%"
+              stopColor="var(--color-totalTokens)"
+              stopOpacity={0.03}
+            />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} strokeDasharray="4 8" />
+        <XAxis
+          dataKey="date"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={10}
+          minTickGap={18}
         />
-        {coords.map((point) => (
-          <circle
-            key={point.item.dayStartTs}
-            cx={point.x}
-            cy={point.y}
-            r="3.2"
-            className="fill-background stroke-primary"
-            strokeWidth="2"
-          >
-            <title>
-              {formatShortDate(point.item.dayStartTs)} · {formatTokenAmount(point.item.totalTokens)}
-            </title>
-          </circle>
-        ))}
-      </svg>
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground">
-        {points.map((item) => (
-          <span key={item.dayStartTs}>{formatShortDate(item.dayStartTs)}</span>
-        ))}
-      </div>
-    </div>
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={10}
+          width={44}
+          tickFormatter={(value) => formatTokenAmount(Number(value))}
+        />
+        <ChartTooltip
+          cursor={false}
+          content={
+            <ChartTooltipContent
+              indicator="line"
+              labelFormatter={(value) => value}
+              formatter={(value, name, item) => {
+                const row = item.payload as {
+                  estimatedCostUsd?: number;
+                };
+                return (
+                  <div className="grid min-w-36 gap-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">{String(name)}</span>
+                      <span className="font-mono font-medium text-foreground">
+                        {formatTokenAmount(Number(value))}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                      <span>Cost</span>
+                      <span>{formatUsd(row.estimatedCostUsd)}</span>
+                    </div>
+                  </div>
+                );
+              }}
+            />
+          }
+        />
+        <Area
+          dataKey="totalTokens"
+          type="monotone"
+          fill="url(#memberFillTotalTokens)"
+          stroke="var(--color-totalTokens)"
+          strokeWidth={3}
+          dot={{ r: 4, strokeWidth: 2, fill: "var(--background)" }}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
+      </AreaChart>
+    </ChartContainer>
   );
 }
 
@@ -293,7 +344,7 @@ function UserUsageDetail({
 
       <div>
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-          <LineChart className="h-4 w-4 text-primary" />
+          <LineChartIcon className="h-4 w-4 text-primary" />
           {t("Token 消耗曲线")}
         </div>
         <UserUsageTrendLine summary={summary} />
@@ -403,6 +454,7 @@ export default function AccountManagerPage() {
   const [topUpUserId, setTopUpUserId] = useState<string | null>(null);
   const [editUserId, setEditUserId] = useState<string | null>(null);
   const [usageUserId, setUsageUserId] = useState<string | null>(null);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState({
     username: "",
     displayName: "",
@@ -411,7 +463,7 @@ export default function AccountManagerPage() {
     initialBalance: "0",
   });
   const [topUpDraft, setTopUpDraft] = useState({
-    amount: "1",
+    amount: "0",
     note: "",
   });
   const [editDraft, setEditDraft] = useState({
@@ -459,6 +511,7 @@ export default function AccountManagerPage() {
   const topUpUser = topUpUserId ? usersById.get(topUpUserId) ?? null : null;
   const editUser = editUserId ? usersById.get(editUserId) ?? null : null;
   const usageUser = usageUserId ? usersById.get(usageUserId) ?? null : null;
+  const deleteUser = deleteUserId ? usersById.get(deleteUserId) ?? null : null;
 
   const refreshAll = async () => {
     await Promise.all([
@@ -516,30 +569,30 @@ export default function AccountManagerPage() {
     },
   });
 
-  const topUpWallet = useMutation({
+  const setWalletAvailable = useMutation({
     mutationFn: async () => {
       if (!topUpUser || !userCanOwnWallet(topUpUser)) {
         throw new Error("请选择可分发成员");
       }
       const amountCreditMicros = parseCreditInput(topUpDraft.amount);
-      if (!amountCreditMicros || amountCreditMicros <= 0) {
-        throw new Error("充值额度必须大于 0");
+      if (amountCreditMicros === null) {
+        throw new Error("可用额度必须是非负数字");
       }
-      return appClient.topUpWallet({
+      return appClient.setWalletAvailable({
         ownerKind: "user",
         ownerId: topUpUser.id,
-        amountCreditMicros,
+        availableCreditMicros: amountCreditMicros,
         note: topUpDraft.note.trim() || null,
       });
     },
     onSuccess: async () => {
       setTopUpUserId(null);
-      setTopUpDraft({ amount: "1", note: "" });
+      setTopUpDraft({ amount: "0", note: "" });
       await refreshAll();
-      toast.success(t("钱包已充值"));
+      toast.success(t("可用额度已更新"));
     },
     onError: (error: unknown) => {
-      toast.error(`${t("充值失败")}: ${getAppErrorMessage(error)}`);
+      toast.error(`${t("额度更新失败")}: ${getAppErrorMessage(error)}`);
     },
   });
 
@@ -571,6 +624,21 @@ export default function AccountManagerPage() {
     },
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async () => {
+      if (!deleteUser) throw new Error("请选择要删除的账号");
+      await appClient.deleteAppUser(deleteUser.id);
+    },
+    onSuccess: async () => {
+      setDeleteUserId(null);
+      await refreshAll();
+      toast.success(t("账号已删除"));
+    },
+    onError: (error: unknown) => {
+      toast.error(`${t("删除失败")}: ${getAppErrorMessage(error)}`);
+    },
+  });
+
   const handleCreateUser = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     createUser.mutate();
@@ -578,7 +646,7 @@ export default function AccountManagerPage() {
 
   const handleTopUp = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    topUpWallet.mutate();
+    setWalletAvailable.mutate();
   };
 
   const handleUpdateUser = (event: FormEvent<HTMLFormElement>) => {
@@ -588,7 +656,12 @@ export default function AccountManagerPage() {
 
   const openTopUpDialog = (user: AppUser) => {
     setTopUpUserId(user.id);
-    setTopUpDraft({ amount: "1", note: "" });
+    setTopUpDraft({
+      amount: String(
+        (user.wallet?.availableCreditMicros ?? 0) / CREDIT_MICROS_PER_USD,
+      ),
+      note: "",
+    });
   };
 
   const openEditDialog = (user: AppUser) => {
@@ -758,7 +831,7 @@ export default function AccountManagerPage() {
                           disabled={!canAccessManagementRpc || !userCanOwnWallet(user)}
                           onClick={() => openTopUpDialog(user)}
                         >
-                          {t("充值")}
+                          {t("额度")}
                         </Button>
                         <Button
                           variant="ghost"
@@ -767,7 +840,7 @@ export default function AccountManagerPage() {
                           disabled={!canAccessManagementRpc}
                           onClick={() => setUsageUserId(user.id)}
                         >
-                          <LineChart className="h-3.5 w-3.5" />
+                          <LineChartIcon className="h-3.5 w-3.5" />
                           {t("用量")}
                         </Button>
                         <Button
@@ -779,6 +852,16 @@ export default function AccountManagerPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                           {t("编辑")}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-destructive hover:text-destructive"
+                          disabled={!canAccessManagementRpc}
+                          onClick={() => setDeleteUserId(user.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {t("删除")}
                         </Button>
                       </div>
                     </TableCell>
@@ -1085,26 +1168,68 @@ export default function AccountManagerPage() {
       </Dialog>
 
       <Dialog
+        open={Boolean(deleteUserId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteUserId(null);
+          }
+        }}
+      >
+        <DialogContent className="glass-card sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>{t("删除登录账号")}</DialogTitle>
+            <DialogDescription>
+              {deleteUser
+                ? `${t("确认删除")}：${userSelectLabel(deleteUser)}`
+                : t("选择登录账号")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            {t("删除后会移除该账号会话、钱包、额度流水和平台 Key 归属，操作不可恢复。")}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteUserId(null)}
+            >
+              {t("取消")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="gap-2"
+              disabled={!canAccessManagementRpc || !deleteUser || deleteUserMutation.isPending}
+              onClick={() => deleteUserMutation.mutate()}
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleteUserMutation.isPending ? t("删除中...") : t("确认删除")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={Boolean(topUpUserId)}
         onOpenChange={(open) => {
           if (!open) {
             setTopUpUserId(null);
-            setTopUpDraft({ amount: "1", note: "" });
+            setTopUpDraft({ amount: "0", note: "" });
           }
         }}
       >
         <DialogContent className="glass-card sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>{t("钱包充值")}</DialogTitle>
+            <DialogTitle>{t("修改可用额度")}</DialogTitle>
             <DialogDescription>
               {topUpUser
-                ? `${t("充值账号")}：${userSelectLabel(topUpUser)}`
+                ? `${t("目标账号")}：${userSelectLabel(topUpUser)}`
                 : t("选择可分发成员")}
             </DialogDescription>
           </DialogHeader>
           <form className="grid gap-4" onSubmit={handleTopUp}>
             <div className="grid gap-1.5">
-              <Label htmlFor="wallet-top-up-amount">{t("充值额度")}</Label>
+              <Label htmlFor="wallet-top-up-amount">{t("可用额度")}</Label>
               <Input
                 id="wallet-top-up-amount"
                 inputMode="decimal"
@@ -1115,8 +1240,11 @@ export default function AccountManagerPage() {
                     amount: event.target.value,
                   }))
                 }
-                placeholder="1"
+                placeholder="0"
               />
+              <p className="text-xs text-muted-foreground">
+                {t("这里会直接设置该成员钱包的可用额度，不是追加充值。")}
+              </p>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="wallet-top-up-note">{t("备注")}</Label>
@@ -1146,11 +1274,11 @@ export default function AccountManagerPage() {
                 disabled={
                   !canAccessManagementRpc ||
                   !topUpUser ||
-                  topUpWallet.isPending
+                  setWalletAvailable.isPending
                 }
               >
                 <WalletCards className="h-4 w-4" />
-                {topUpWallet.isPending ? t("充值中...") : t("确认充值")}
+                {setWalletAvailable.isPending ? t("保存中...") : t("保存额度")}
               </Button>
             </DialogFooter>
           </form>

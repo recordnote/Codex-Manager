@@ -119,13 +119,11 @@ pub(super) fn load_active_api_key(
     }
 
     crate::wallet_precheck_for_api_key(storage, &api_key.id).map_err(|err| {
-        let status = if err.contains("余额不足") {
-            429
-        } else {
-            403
-        };
+        if err.contains("余额不足") {
+            return super::LocalValidationError::new(429, "额度不足，请联系管理员");
+        }
         super::LocalValidationError::new(
-            status,
+            403,
             crate::gateway::bilingual_error(err, "wallet precheck failed"),
         )
     })?;

@@ -118,6 +118,37 @@ impl Storage {
         Ok(())
     }
 
+    pub fn delete_app_user(&self, user_id: &str) -> Result<usize> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            "DELETE FROM api_key_owners
+             WHERE owner_kind = 'user' AND owner_user_id = ?1",
+            [user_id],
+        )?;
+        tx.execute(
+            "DELETE FROM app_user_sessions WHERE user_id = ?1",
+            [user_id],
+        )?;
+        tx.execute(
+            "DELETE FROM user_model_groups WHERE user_id = ?1",
+            [user_id],
+        )?;
+        tx.execute(
+            "DELETE FROM app_wallet_ledger_entries
+             WHERE wallet_id IN (
+                SELECT id FROM app_wallets WHERE owner_kind = 'user' AND owner_id = ?1
+             )",
+            [user_id],
+        )?;
+        tx.execute(
+            "DELETE FROM app_wallets WHERE owner_kind = 'user' AND owner_id = ?1",
+            [user_id],
+        )?;
+        let deleted = tx.execute("DELETE FROM app_users WHERE id = ?1", [user_id])?;
+        tx.commit()?;
+        Ok(deleted)
+    }
+
     pub fn list_app_users(&self) -> Result<Vec<AppUser>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, username, display_name, password_hash, role, status,

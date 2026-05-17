@@ -272,6 +272,9 @@ export function createWebCommandMap(
       rpcMethod: "accountManager/users/update",
       mapParams: (params) => asRecord(asRecord(params)?.payload) ?? {},
     },
+    service_account_manager_user_delete: {
+      rpcMethod: "accountManager/users/delete",
+    },
     service_account_manager_wallet_top_up: {
       rpcMethod: "accountManager/wallet/topUp",
       mapParams: (params) => {
@@ -281,6 +284,19 @@ export function createWebCommandMap(
           ownerId: source.owner_id ?? source.ownerId,
           amountCreditMicros:
             source.amount_credit_micros ?? source.amountCreditMicros,
+          note: source.note,
+        };
+      },
+    },
+    service_account_manager_wallet_set_available: {
+      rpcMethod: "accountManager/wallet/setAvailable",
+      mapParams: (params) => {
+        const source = asRecord(params) ?? {};
+        return {
+          ownerKind: source.owner_kind ?? source.ownerKind,
+          ownerId: source.owner_id ?? source.ownerId,
+          availableCreditMicros:
+            source.available_credit_micros ?? source.availableCreditMicros,
           note: source.note,
         };
       },

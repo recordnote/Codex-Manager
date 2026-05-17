@@ -57,6 +57,10 @@ pub(super) fn try_handle(req: &JsonRpcRequest, actor: &RpcActor) -> Option<JsonR
                     .and_then(crate::update_app_user),
             )
         }
+        "accountManager/users/delete" => {
+            let user_id = super::str_param(req, "id").unwrap_or("");
+            super::ok_or_error(crate::delete_app_user(user_id))
+        }
         "accountManager/wallet/topUp" => {
             let owner_kind = super::str_param(req, "ownerKind").unwrap_or("user");
             let owner_id = super::str_param(req, "ownerId").unwrap_or("");
@@ -64,6 +68,16 @@ pub(super) fn try_handle(req: &JsonRpcRequest, actor: &RpcActor) -> Option<JsonR
             let note = super::str_param(req, "note");
             let created_by = super::str_param(req, "createdByUserId");
             super::value_or_error(crate::wallet_top_up(
+                owner_kind, owner_id, amount, note, created_by,
+            ))
+        }
+        "accountManager/wallet/setAvailable" => {
+            let owner_kind = super::str_param(req, "ownerKind").unwrap_or("user");
+            let owner_id = super::str_param(req, "ownerId").unwrap_or("");
+            let amount = super::i64_param(req, "availableCreditMicros").unwrap_or(0);
+            let note = super::str_param(req, "note");
+            let created_by = super::str_param(req, "createdByUserId");
+            super::value_or_error(crate::wallet_set_available_credit(
                 owner_kind, owner_id, amount, note, created_by,
             ))
         }

@@ -11,6 +11,7 @@ mod errors;
 mod gateway;
 mod http;
 mod lifecycle;
+mod logging;
 mod model_groups;
 mod plugin;
 mod quota;
@@ -138,6 +139,7 @@ pub use auth::{rpc_auth_token, rpc_auth_token_matches};
 pub use lifecycle::bootstrap::{initialize_storage_if_needed, portable};
 pub use lifecycle::shutdown::{clear_shutdown_flag, request_shutdown, shutdown_requested};
 pub use lifecycle::startup::{start_one_shot_server, start_server, ServerHandle};
+pub use logging::init_logging;
 pub use rpc_actor::{RpcActor, ROLE_ADMIN, ROLE_MEMBER, ROLE_SYSTEM_ADMIN};
 pub use usage_refresh::{set_usage_refresh_completed_handler, UsageRefreshCompletedEvent};
 

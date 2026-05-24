@@ -632,7 +632,12 @@ where
     {
         match discover_models(api.id.as_str()) {
             Ok(models) => {
-                storage
+                let previous_upstream_models = stale_source_upstream_models(
+                    storage,
+                    ROUTING_SOURCE_KIND_AGGREGATE_API,
+                    api.id.as_str(),
+                )?;
+                let synced_source_models = storage
                     .upsert_discovered_model_source_models(
                         ROUTING_SOURCE_KIND_AGGREGATE_API,
                         api.id.as_str(),
@@ -640,6 +645,15 @@ where
                         "synced",
                     )
                     .map_err(|err| format!("sync aggregate api source models failed: {err}"))?;
+                let synced_upstream_models = synced_source_models
+                    .into_iter()
+                    .map(|model| model.upstream_model)
+                    .collect::<HashSet<_>>();
+                let disappeared_upstream_models = previous_upstream_models
+                    .difference(&synced_upstream_models)
+                    .cloned()
+                    .collect::<HashSet<_>>();
+                cleanup_orphan_auto_catalog_models(storage, &disappeared_upstream_models)?;
                 auto_associate_source_models(
                     storage,
                     ROUTING_SOURCE_KIND_AGGREGATE_API,
@@ -695,8 +709,11 @@ fn prune_stale_aggregate_api_source_routes(
         if active_source_ids.contains(source_id.as_str()) {
             continue;
         }
-        let stale_upstream_models =
-            stale_source_upstream_models(storage, ROUTING_SOURCE_KIND_AGGREGATE_API, source_id.as_str())?;
+        let stale_upstream_models = stale_source_upstream_models(
+            storage,
+            ROUTING_SOURCE_KIND_AGGREGATE_API,
+            source_id.as_str(),
+        )?;
         storage
             .delete_model_source_routes_for_source(
                 ROUTING_SOURCE_KIND_AGGREGATE_API,
@@ -2893,12 +2910,10 @@ mod tests {
 
         let catalog_after = read_managed_model_catalog_from_storage(&storage)
             .expect("read catalog after bootstrap");
-        assert!(
-            !catalog_after
-                .items
-                .iter()
-                .any(|item| item.model.slug == "orphan-agg-model")
-        );
+        assert!(!catalog_after
+            .items
+            .iter()
+            .any(|item| item.model.slug == "orphan-agg-model"));
     }
 
     #[test]
@@ -2967,12 +2982,84 @@ mod tests {
             .items
             .iter()
             .any(|item| item.model.slug == "unrelated-remote-model"));
-        assert!(
-            !catalog_after
-                .items
-                .iter()
-                .any(|item| item.model.slug == "orphan-agg-model")
+        assert!(!catalog_after
+            .items
+            .iter()
+            .any(|item| item.model.slug == "orphan-agg-model"));
+    }
+
+    #[test]
+    fn aggregate_source_sync_cleans_orphan_auto_catalog_model_when_model_disappears() {
+        let storage = Storage::open_in_memory().expect("open storage");
+        storage.init().expect("init storage");
+        insert_test_aggregate_api(&storage, "agg-changing", "active");
+
+        sync_aggregate_api_source_models_with_discovery(
+            &storage,
+            Some("agg-changing"),
+            |source_id| {
+                assert_eq!(source_id, "agg-changing");
+                Ok(vec!["vendor-old".to_string()])
+            },
+        )
+        .expect("sync initial aggregate models");
+
+        let initial_catalog =
+            read_managed_model_catalog_from_storage(&storage).expect("read initial catalog");
+        assert!(initial_catalog
+            .items
+            .iter()
+            .any(|item| item.model.slug == "vendor-old"));
+        assert_eq!(
+            storage
+                .list_enabled_model_source_mappings_for_platform("vendor-old")
+                .expect("list initial mapping")
+                .len(),
+            1
         );
+
+        sync_aggregate_api_source_models_with_discovery(
+            &storage,
+            Some("agg-changing"),
+            |source_id| {
+                assert_eq!(source_id, "agg-changing");
+                Ok(vec!["vendor-new".to_string()])
+            },
+        )
+        .expect("sync changed aggregate models");
+
+        let source_models = storage
+            .list_model_source_models(
+                Some(ROUTING_SOURCE_KIND_AGGREGATE_API),
+                Some("agg-changing"),
+            )
+            .expect("list source models");
+        assert!(!source_models
+            .iter()
+            .any(|item| item.upstream_model == "vendor-old"));
+        assert!(source_models
+            .iter()
+            .any(|item| item.upstream_model == "vendor-new"));
+        assert!(storage
+            .list_model_source_mappings(Some("vendor-old"))
+            .expect("list old mappings")
+            .is_empty());
+
+        let catalog_after =
+            read_managed_model_catalog_from_storage(&storage).expect("read catalog after sync");
+        assert!(!catalog_after
+            .items
+            .iter()
+            .any(|item| item.model.slug == "vendor-old"));
+        assert!(catalog_after
+            .items
+            .iter()
+            .any(|item| item.model.slug == "vendor-new"));
+        let new_mappings = storage
+            .list_enabled_model_source_mappings_for_platform("vendor-new")
+            .expect("list new mappings");
+        assert_eq!(new_mappings.len(), 1);
+        assert_eq!(new_mappings[0].source_id, "agg-changing");
     }
 
     #[test]

@@ -177,11 +177,14 @@ impl Storage {
                AND source_id = ?2
                AND discovery_kind = ?3",
         )?;
-        let existing_rows = stmt.query_map(params![&source_kind, &source_id, &discovery_kind], |row| {
-            row.get::<_, String>(0)
-        })?;
-        let existing_upstream_models: std::collections::BTreeSet<String> =
-            existing_rows.collect::<Result<Vec<_>>>()?.into_iter().collect();
+        let existing_rows = stmt
+            .query_map(params![&source_kind, &source_id, &discovery_kind], |row| {
+                row.get::<_, String>(0)
+            })?;
+        let existing_upstream_models: std::collections::BTreeSet<String> = existing_rows
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .collect();
         let stale_upstream_models = existing_upstream_models
             .difference(&seen)
             .cloned()

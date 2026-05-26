@@ -160,6 +160,33 @@ export interface ManagedModelSourceMappingPayload {
   billingModelSlug?: string | null;
 }
 
+export interface ModelPriceRuleEntry {
+  id: string;
+  provider: string;
+  modelPattern: string;
+  matchType: string;
+  inputPricePer1m: number | null;
+  cachedInputPricePer1m: number | null;
+  outputPricePer1m: number | null;
+  enabled: boolean;
+  priority: number;
+  source: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ModelPriceRuleUpsertPayload {
+  id?: string | null;
+  provider?: string | null;
+  modelPattern: string;
+  matchType?: string | null;
+  inputPricePer1m?: number | null;
+  cachedInputPricePer1m?: number | null;
+  outputPricePer1m?: number | null;
+  enabled?: boolean | null;
+  priority?: number | null;
+}
+
 export interface AggregateApiSupplierModelPayload {
   supplierKey: string;
   providerType: string;
@@ -861,6 +888,27 @@ export const accountClient = {
   },
   deleteManagedModel: (slug: string) =>
     invoke("service_model_catalog_delete", withAddr({ slug })),
+  listModelPriceRules: async () => {
+    const result = await invoke<{ items: ModelPriceRuleEntry[] }>(
+      "service_model_price_rules_list",
+      withAddr(),
+    );
+    return result.items;
+  },
+  readModelPriceRule: async (modelPattern: string) => {
+    const result = await invoke<ModelPriceRuleEntry | null>(
+      "service_model_price_rule_read",
+      withAddr({ modelPattern }),
+    );
+    return result;
+  },
+  upsertModelPriceRule: async (payload: ModelPriceRuleUpsertPayload) => {
+    const result = await invoke<ModelPriceRuleEntry>(
+      "service_model_price_rule_upsert",
+      withAddr({ payload }),
+    );
+    return result;
+  },
   async readApiKeySecret(keyId: string): Promise<string> {
     const result = await invoke<unknown>(
       "service_apikey_read_secret",

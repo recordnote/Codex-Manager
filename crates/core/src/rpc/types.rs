@@ -1594,6 +1594,60 @@ pub struct MemberDashboardSummaryResult {
     pub alerts: Vec<MemberDashboardAlert>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPriceRuleEntry {
+    pub id: String,
+    pub provider: String,
+    pub model_pattern: String,
+    pub match_type: String,
+    #[serde(default)]
+    pub input_price_per_1m: Option<f64>,
+    #[serde(default)]
+    pub cached_input_price_per_1m: Option<f64>,
+    #[serde(default)]
+    pub output_price_per_1m: Option<f64>,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub priority: i64,
+    #[serde(default)]
+    pub source: String,
+    #[serde(default)]
+    pub created_at: i64,
+    #[serde(default)]
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPriceRuleListResult {
+    #[serde(default)]
+    pub items: Vec<ModelPriceRuleEntry>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPriceRuleUpsertInput {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub provider: Option<String>,
+    pub model_pattern: String,
+    #[serde(default)]
+    pub match_type: Option<String>,
+    #[serde(default)]
+    pub input_price_per_1m: Option<f64>,
+    #[serde(default)]
+    pub cached_input_price_per_1m: Option<f64>,
+    #[serde(default)]
+    pub output_price_per_1m: Option<f64>,
+    #[serde(default)]
+    pub enabled: Option<bool>,
+    #[serde(default)]
+    pub priority: Option<i64>,
+}
+
 #[cfg(test)]
 #[path = "tests/types_tests.rs"]
 mod tests;

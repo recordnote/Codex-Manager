@@ -133,6 +133,7 @@ export default function ModelsPage() {
     isServiceReady,
     refreshRemote,
     saveModel,
+    saveModelPriceRule,
     deleteModel,
     deleteModels,
     exportCodexCache,
@@ -1410,6 +1411,7 @@ export default function ModelsPage() {
         nextSortIndex={nextSortIndex}
         isSaving={isSaving}
         onSave={saveModel}
+        onSavePriceRule={saveModelPriceRule}
       />
       ) : null}
 

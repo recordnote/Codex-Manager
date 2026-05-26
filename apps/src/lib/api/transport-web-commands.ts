@@ -544,6 +544,16 @@ export function createWebCommandMap(
     service_model_source_mapping_delete: {
       rpcMethod: "apikey/modelSourceMappingDelete",
     },
+    service_model_price_rules_list: {
+      rpcMethod: "quota/modelPriceRules/list",
+    },
+    service_model_price_rule_read: {
+      rpcMethod: "quota/modelPriceRule/read",
+    },
+    service_model_price_rule_upsert: {
+      rpcMethod: "quota/modelPriceRule/upsert",
+      mapParams: (params) => asRecord(asRecord(params)?.payload) ?? {},
+    },
     service_apikey_read_secret: {
       rpcMethod: "apikey/readSecret",
       mapParams: mapKeyIdToId,

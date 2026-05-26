@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ManagedModelPayload } from "@/lib/api/account-client";
+import { ManagedModelPayload, ModelPriceRuleUpsertPayload } from "@/lib/api/account-client";
 import { useI18n } from "@/lib/i18n/provider";
 import { ManagedModelInfo } from "@/types";
 
@@ -35,6 +35,7 @@ interface ModelCatalogModalProps {
   nextSortIndex: number;
   isSaving?: boolean;
   onSave: (payload: ManagedModelPayload) => Promise<ManagedModelInfo | null>;
+  onSavePriceRule?: (payload: ModelPriceRuleUpsertPayload) => Promise<void>;
 }
 
 interface ModelCatalogDraft {
@@ -49,6 +50,9 @@ interface ModelCatalogDraft {
   visibility: string;
   defaultReasoningLevel: string;
   advancedJson: string;
+  inputPricePer1m: string;
+  cachedInputPricePer1m: string;
+  outputPricePer1m: string;
 }
 
 const EDITABLE_ADVANCED_KEYS = [
@@ -208,6 +212,9 @@ function buildDraft(
     visibility: normalizeVisibilityValue(model?.visibility),
     defaultReasoningLevel: model?.defaultReasoningLevel || "",
     advancedJson: buildAdvancedJson(model),
+    inputPricePer1m: "",
+    cachedInputPricePer1m: "",
+    outputPricePer1m: "",
   };
 }
 
@@ -261,6 +268,7 @@ export function ModelCatalogModal({
   nextSortIndex,
   isSaving = false,
   onSave,
+  onSavePriceRule,
 }: ModelCatalogModalProps) {
   const { t } = useI18n();
   const [draft, setDraft] = useState<ModelCatalogDraft>(() =>
@@ -320,6 +328,23 @@ export function ModelCatalogModal({
       model: nextModel,
     });
     if (saved) {
+      if (onSavePriceRule && slug) {
+        const ip = draft.inputPricePer1m.trim();
+        const cp = draft.cachedInputPricePer1m.trim();
+        const op = draft.outputPricePer1m.trim();
+        if (ip !== "" || cp !== "" || op !== "") {
+          try {
+            await onSavePriceRule({
+              modelPattern: slug,
+              inputPricePer1m: ip !== "" ? Number(ip) : null,
+              cachedInputPricePer1m: cp !== "" ? Number(cp) : null,
+              outputPricePer1m: op !== "" ? Number(op) : null,
+            });
+          } catch {
+            // price save is non-fatal
+          }
+        }
+      }
       onOpenChange(false);
     }
   };
@@ -498,6 +523,57 @@ export function ModelCatalogModal({
                   />
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{t("Token 价格 (USD / 1M tokens)")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t("零表示不计费，价格将用于请求成本估算。")}
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="price-input">{t("输入价格")}</Label>
+                <Input
+                  id="price-input"
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={draft.inputPricePer1m}
+                  onChange={(event) =>
+                    updateDraft("inputPricePer1m", event.target.value)
+                  }
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price-cached">{t("缓存输入价格")}</Label>
+                <Input
+                  id="price-cached"
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={draft.cachedInputPricePer1m}
+                  onChange={(event) =>
+                    updateDraft("cachedInputPricePer1m", event.target.value)
+                  }
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price-output">{t("输出价格")}</Label>
+                <Input
+                  id="price-output"
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={draft.outputPricePer1m}
+                  onChange={(event) =>
+                    updateDraft("outputPricePer1m", event.target.value)
+                  }
+                  placeholder="0"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

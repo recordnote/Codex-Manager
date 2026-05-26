@@ -9,6 +9,7 @@ import {
   ManagedModelSourceMappingPayload,
   ManagedModelSourceModelPayload,
   ManagedModelSourceSyncPayload,
+  ModelPriceRuleUpsertPayload,
 } from "@/lib/api/account-client";
 import { serviceClient } from "@/lib/api/service-client";
 import {
@@ -404,6 +405,10 @@ export function useManagedModels() {
     saveModel: async (params: ManagedModelPayload) => {
       if (!ensureServiceReady("保存模型")) return null;
       return saveMutation.mutateAsync(params);
+    },
+    saveModelPriceRule: async (params: ModelPriceRuleUpsertPayload) => {
+      if (!ensureServiceReady("保存模型价格")) return;
+      await accountClient.upsertModelPriceRule(params);
     },
     deleteModel: async (slug: string) => {
       if (!ensureServiceReady("删除模型")) return false;

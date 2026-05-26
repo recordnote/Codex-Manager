@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use chrono::{Duration, Local, LocalResult, TimeZone};
 use codexmanager_core::rpc::types::{
     AccountQuotaCapacityOverrideResult, AccountQuotaCapacityTemplateResult, BillingRuleResult,
+    ModelPriceRuleEntry, ModelPriceRuleListResult, ModelPriceRuleUpsertInput,
     QuotaAggregateApiOverviewResult, QuotaApiKeyModelUsageItem, QuotaApiKeyOverviewResult,
     QuotaApiKeyUsageItem, QuotaApiKeyUsageResult, QuotaBillingRulesResult,
     QuotaCapacityConfigResult, QuotaModelPoolItem, QuotaModelPoolsResult, QuotaModelUsageItem,
@@ -12,7 +13,7 @@ use codexmanager_core::rpc::types::{
     QuotaSystemPoolResult, QuotaTodayUsageResult,
 };
 use codexmanager_core::storage::{
-    Account, AccountQuotaCapacityOverride, AccountQuotaCapacityTemplate, AccountSubscription,
+    now_ts, Account, AccountQuotaCapacityOverride, AccountQuotaCapacityTemplate, AccountSubscription,
     AggregateApi, ApiKey, BillingRule, ModelPriceRule, QuotaSourceModelAssignment, Token,
     UsageSnapshotRecord,
 };
@@ -1480,6 +1481,93 @@ pub(crate) fn refresh_quota_sources(
     }
 
     Ok(QuotaRefreshSourcesResult { items })
+}
+
+pub(crate) fn list_model_price_rules() -> Result<ModelPriceRuleListResult, String> {
+    let storage = open_storage().ok_or_else(|| "open storage failed".to_string())?;
+    let rules = storage
+        .list_enabled_model_price_rules()
+        .map_err(|err| format!("list model price rules failed: {err}"))?;
+    Ok(ModelPriceRuleListResult {
+        items: rules.into_iter().map(price_rule_entry).collect(),
+    })
+}
+
+pub(crate) fn read_model_price_rule(
+    model_pattern: &str,
+) -> Result<Option<ModelPriceRuleEntry>, String> {
+    let storage = open_storage().ok_or_else(|| "open storage failed".to_string())?;
+    let rules = storage
+        .list_enabled_model_price_rules()
+        .map_err(|err| format!("list model price rules failed: {err}"))?;
+    let normalized = model_pattern.trim().to_ascii_lowercase();
+    Ok(rules
+        .into_iter()
+        .find(|rule| rule.model_pattern.to_ascii_lowercase() == normalized)
+        .map(price_rule_entry))
+}
+
+pub(crate) fn upsert_model_price_rule(
+    input: ModelPriceRuleUpsertInput,
+) -> Result<ModelPriceRuleEntry, String> {
+    let storage = open_storage().ok_or_else(|| "open storage failed".to_string())?;
+    let now = now_ts();
+    let id = input
+        .id
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| format!("user-{}", input.model_pattern));
+    let rule = ModelPriceRule {
+        id,
+        provider: input
+            .provider
+            .unwrap_or_else(|| "openai".to_string()),
+        model_pattern: input.model_pattern,
+        match_type: input
+            .match_type
+            .unwrap_or_else(|| "exact".to_string()),
+        billing_mode: "standard".to_string(),
+        currency: "USD".to_string(),
+        unit: "per_1m_tokens".to_string(),
+        input_price_per_1m: input.input_price_per_1m,
+        cached_input_price_per_1m: input.cached_input_price_per_1m,
+        output_price_per_1m: input.output_price_per_1m,
+        reasoning_output_price_per_1m: None,
+        cache_write_5m_price_per_1m: None,
+        cache_write_1h_price_per_1m: None,
+        cache_hit_price_per_1m: None,
+        long_context_threshold_tokens: None,
+        long_context_input_price_per_1m: None,
+        long_context_cached_input_price_per_1m: None,
+        long_context_output_price_per_1m: None,
+        source: "custom".to_string(),
+        source_url: None,
+        seed_version: None,
+        enabled: input.enabled.unwrap_or(true),
+        priority: input.priority.unwrap_or(20000),
+        created_at: now,
+        updated_at: now,
+    };
+    storage
+        .upsert_model_price_rule(&rule)
+        .map_err(|err| format!("upsert model price rule failed: {err}"))?;
+    Ok(price_rule_entry(rule))
+}
+
+fn price_rule_entry(rule: ModelPriceRule) -> ModelPriceRuleEntry {
+    ModelPriceRuleEntry {
+        id: rule.id,
+        provider: rule.provider,
+        model_pattern: rule.model_pattern,
+        match_type: rule.match_type,
+        input_price_per_1m: rule.input_price_per_1m,
+        cached_input_price_per_1m: rule.cached_input_price_per_1m,
+        output_price_per_1m: rule.output_price_per_1m,
+        enabled: rule.enabled,
+        priority: rule.priority,
+        source: rule.source,
+        created_at: rule.created_at,
+        updated_at: rule.updated_at,
+    }
 }
 
 #[cfg(test)]

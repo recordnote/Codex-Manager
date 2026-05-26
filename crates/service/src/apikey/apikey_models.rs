@@ -9,7 +9,7 @@ use codexmanager_core::rpc::types::{
 };
 use codexmanager_core::storage::{
     now_ts, ModelCatalogModelRecord, ModelCatalogReasoningLevelRecord, ModelCatalogScopeRecord,
-    ModelCatalogStringItemRecord, ModelSourceMapping, ModelSourceModel, Storage,
+    ModelCatalogStringItemRecord, ModelPriceRule, ModelSourceMapping, ModelSourceModel, Storage,
 };
 use rand::RngCore;
 use serde_json::Value;
@@ -894,7 +894,7 @@ fn auto_associate_source_models(
     }
 
     let now = now_ts();
-    for source_model in source_models {
+    for source_model in &source_models {
         if !platform_slugs.contains(source_model.upstream_model.as_str()) {
             continue;
         }
@@ -906,7 +906,7 @@ fn auto_associate_source_models(
             platform_model_slug: source_model.upstream_model.clone(),
             source_kind: source_kind.to_string(),
             source_id: source_id.to_string(),
-            upstream_model: source_model.upstream_model,
+            upstream_model: source_model.upstream_model.clone(),
             enabled: true,
             priority: 0,
             weight: 1,
@@ -917,6 +917,62 @@ fn auto_associate_source_models(
         storage
             .upsert_model_source_mapping(&mapping)
             .map_err(|err| format!("save model mapping failed: {err}"))?;
+    }
+
+    if source_kind == ROUTING_SOURCE_KIND_AGGREGATE_API && auto_create_platform_models {
+        ensure_model_price_rules_for_aggregate_api(storage, source_id, &source_models)?;
+    }
+
+    Ok(())
+}
+
+fn ensure_model_price_rules_for_aggregate_api(
+    storage: &Storage,
+    source_id: &str,
+    source_models: &[ModelSourceModel],
+) -> Result<(), String> {
+    let existing_patterns: HashSet<String> = storage
+        .list_enabled_model_price_rules()
+        .map_err(|err| format!("list model price rules failed: {err}"))?
+        .into_iter()
+        .map(|rule| rule.model_pattern.to_ascii_lowercase())
+        .collect();
+
+    let now = now_ts();
+    for model in source_models {
+        let slug = model.upstream_model.trim();
+        if slug.is_empty() || existing_patterns.contains(&slug.to_ascii_lowercase()) {
+            continue;
+        }
+        storage
+            .upsert_model_price_rule(&ModelPriceRule {
+                id: format!("agg-sync-{source_id}-{slug}"),
+                provider: "openai".to_string(),
+                model_pattern: slug.to_string(),
+                match_type: "exact".to_string(),
+                billing_mode: "standard".to_string(),
+                currency: "USD".to_string(),
+                unit: "per_1m_tokens".to_string(),
+                input_price_per_1m: Some(0.0),
+                cached_input_price_per_1m: Some(0.0),
+                output_price_per_1m: Some(0.0),
+                reasoning_output_price_per_1m: None,
+                cache_write_5m_price_per_1m: None,
+                cache_write_1h_price_per_1m: None,
+                cache_hit_price_per_1m: None,
+                long_context_threshold_tokens: None,
+                long_context_input_price_per_1m: None,
+                long_context_cached_input_price_per_1m: None,
+                long_context_output_price_per_1m: None,
+                source: "aggregate_api_sync".to_string(),
+                source_url: None,
+                seed_version: None,
+                enabled: true,
+                priority: -10,
+                created_at: now,
+                updated_at: now,
+            })
+            .map_err(|err| format!("upsert model price rule for {slug} failed: {err}"))?;
     }
     Ok(())
 }

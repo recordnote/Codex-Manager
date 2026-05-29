@@ -920,7 +920,13 @@ fn auto_associate_source_models(
     }
 
     if source_kind == ROUTING_SOURCE_KIND_AGGREGATE_API && auto_create_platform_models {
-        let _ = ensure_model_price_rules_for_aggregate_api(storage, source_id, &source_models);
+        if let Err(err) =
+            ensure_model_price_rules_for_aggregate_api(storage, source_id, &source_models)
+        {
+            log::warn!(
+                "aggregate API {source_id}: 自动创建模型价格规则失败: {err}"
+            );
+        }
     }
 
     Ok(())

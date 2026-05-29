@@ -1552,18 +1552,18 @@ pub(crate) fn upsert_model_price_rule(
         updated_at: now,
     };
     if let Some(v) = rule.input_price_per_1m {
-        if v < 0.0 {
-            return Err("input_price_per_1m 不能为负数".to_string());
+        if !v.is_finite() || v < 0.0 {
+            return Err("input_price_per_1m 必须为非负有效数字".to_string());
         }
     }
     if let Some(v) = rule.cached_input_price_per_1m {
-        if v < 0.0 {
-            return Err("cached_input_price_per_1m 不能为负数".to_string());
+        if !v.is_finite() || v < 0.0 {
+            return Err("cached_input_price_per_1m 必须为非负有效数字".to_string());
         }
     }
     if let Some(v) = rule.output_price_per_1m {
-        if v < 0.0 {
-            return Err("output_price_per_1m 不能为负数".to_string());
+        if !v.is_finite() || v < 0.0 {
+            return Err("output_price_per_1m 必须为非负有效数字".to_string());
         }
     }
     storage

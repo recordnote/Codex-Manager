@@ -286,10 +286,12 @@ export function ModelCatalogModal({
     const frameId = window.requestAnimationFrame(() => {
       setDraft(buildDraft(model, nextSortIndex, priceRule));
       setPriceError(null);
+      setSavingPrice(false);
     });
     return () => {
       window.cancelAnimationFrame(frameId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, nextSortIndex, open]);
 
   useEffect(() => {
@@ -309,7 +311,6 @@ export function ModelCatalogModal({
           ? String(priceRule.outputPricePer1m)
           : "",
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priceRule, open]);
 
   const title = useMemo(
@@ -327,7 +328,8 @@ export function ModelCatalogModal({
   const handleSave = async () => {
     const slug = draft.slug.trim();
     if (!slug) {
-      throw new Error("模型 slug 不能为空");
+      setPriceError("模型 slug 不能为空");
+      return;
     }
 
     const advancedFields = parseJsonObject(draft.advancedJson, "高级 JSON");
@@ -371,11 +373,11 @@ export function ModelCatalogModal({
             const cachedNum = cp !== "" ? Number(cp) : (priceRule?.cachedInputPricePer1m ?? null);
             const outputNum = op !== "" ? Number(op) : (priceRule?.outputPricePer1m ?? null);
             if (
-              (inputNum !== null && inputNum < 0) ||
-              (cachedNum !== null && cachedNum < 0) ||
-              (outputNum !== null && outputNum < 0)
+              (inputNum !== null && (!Number.isFinite(inputNum) || inputNum < 0)) ||
+              (cachedNum !== null && (!Number.isFinite(cachedNum) || cachedNum < 0)) ||
+              (outputNum !== null && (!Number.isFinite(outputNum) || outputNum < 0))
             ) {
-              setPriceError("价格不能为负数");
+              setPriceError("价格必须为非负有效数字");
               return;
             }
             setSavingPrice(true);

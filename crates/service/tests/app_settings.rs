@@ -625,7 +625,7 @@ fn sync_runtime_settings_from_storage_preserves_explicit_process_env_over_persis
 }
 
 #[test]
-fn sync_runtime_settings_from_storage_upgrades_legacy_image_auto_inject_default() {
+fn sync_runtime_settings_from_storage_preserves_explicit_image_auto_inject_override() {
     with_temp_db(|db_path| {
         let storage = Storage::open(db_path).expect("open storage");
         storage
@@ -648,14 +648,14 @@ fn sync_runtime_settings_from_storage_upgrades_legacy_image_auto_inject_default(
             std::env::var(CODEX_IMAGE_AUTO_INJECT_TOOL_ENV)
                 .ok()
                 .as_deref(),
-            Some("1")
+            Some("0")
         );
         let stored = read_env_overrides_map(db_path);
         assert_eq!(
             stored
                 .get(CODEX_IMAGE_AUTO_INJECT_TOOL_ENV)
                 .and_then(|value| value.as_str()),
-            Some("1")
+            Some("0")
         );
     });
 }

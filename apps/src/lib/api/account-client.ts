@@ -921,7 +921,6 @@ export const accountClient = {
     );
     return normalizeManagedModelCatalog(result);
   },
-  },
   async readApiKeySecret(keyId: string): Promise<string> {
     const result = await invoke<unknown>(
       "service_apikey_read_secret",

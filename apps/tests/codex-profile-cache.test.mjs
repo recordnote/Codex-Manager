@@ -9,6 +9,14 @@ async function readSource(relativePath) {
   return fs.readFile(path.join(appsRoot, relativePath), "utf8");
 }
 
+function readConstFunctionBody(source, functionName) {
+  const start = source.indexOf(`const ${functionName} = async () => {`);
+  assert.notEqual(start, -1, `${functionName} not found`);
+  const end = source.indexOf("\n  };\n", start);
+  assert.notEqual(end, -1, `${functionName} body end not found`);
+  return source.slice(start, end);
+}
+
 test("账号登录和导入会刷新 Codex profile 候选账号", async () => {
   const source = await readSource("src/components/modals/add-account-modal.tsx");
   assert.match(source, /CODEX_PROFILE_CANDIDATES_QUERY_KEY/);
@@ -20,10 +28,11 @@ test("账号登录和导入会刷新 Codex profile 候选账号", async () => {
 
 test("账号池页面变更会刷新 Codex profile 候选账号", async () => {
   const source = await readSource("src/hooks/useAccounts.ts");
+  const invalidateUsageBody = readConstFunctionBody(source, "invalidateUsageData");
   assert.match(source, /CODEX_PROFILE_CANDIDATES_QUERY_KEY/);
   assert.match(
-    source,
-    /const invalidateAll = async \(\) => \{[\s\S]*queryClient\.invalidateQueries\(\{\s*queryKey:\s*CODEX_PROFILE_CANDIDATES_QUERY_KEY\s*\}\)/,
+    invalidateUsageBody,
+    /queryClient\.invalidateQueries\(\{\s*queryKey:\s*CODEX_PROFILE_CANDIDATES_QUERY_KEY\s*\}\)/,
   );
 });
 

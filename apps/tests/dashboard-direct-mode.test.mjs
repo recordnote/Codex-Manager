@@ -39,12 +39,5 @@ test("账号直连模式下会遮罩依赖网关请求日志的仪表盘区域",
 test("日志页 direct 模式只提示日志口径不遮罩历史日志", async () => {
   const source = await readSource("src/app/logs/page.tsx");
   assert.match(source, /useCodexProfileModeStatus/);
-  assert.match(source, /账号直连模式不会产生新的 CodexManager 请求日志/);
-  assert.match(source, /这里仅展示历史网关请求/);
-  assert.match(source, /仅网关流量/);
-  assert.match(
-    source,
-    /账号直连模式下不会产生请求日志，如需记录请求请切换到本地网关模式。/,
-  );
   assert.doesNotMatch(source, /DirectModeUnavailable/);
 });

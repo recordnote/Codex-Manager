@@ -26,6 +26,12 @@ pub(crate) fn read_startup_snapshot(
     let accounts = storage
         .list_accounts()
         .map_err(|err| format!("list accounts failed: {err}"))?;
+    let db_path = std::env::var("CODEXMANAGER_DB_PATH").unwrap_or_else(|_| "<unset>".to_string());
+    log::info!(
+        "startup/snapshot read: db_path={} account_count={}",
+        db_path,
+        accounts.len()
+    );
     let account_context = account_list::build_account_summary_context(&storage, &accounts)?;
     let usage_aggregate_summary = usage_aggregate::compute_usage_aggregate_summary(
         &accounts,

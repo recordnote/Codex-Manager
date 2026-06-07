@@ -373,8 +373,8 @@ async function importAccountContents(contents: string[]): Promise<AccountImportR
 }
 
 export const accountClient = {
-  async list(params?: Record<string, unknown>): Promise<AccountListResult> {
-    const result = await invoke<unknown>("service_account_list", withAddr(params));
+  async list(): Promise<AccountListResult> {
+    const result = await invoke<unknown>("service_account_list", withAddr());
     return normalizeAccountList(result);
   },
   delete: (accountId: string) =>

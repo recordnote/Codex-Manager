@@ -434,10 +434,18 @@ export const EN_MESSAGES: MessageCatalog = {
   "已生成登录链接，正在等待授权完成...":
     "Login link generated. Waiting for authorization...",
   登录成功: "Login successful",
+  "登录成功，但账号同步失败": "Login succeeded, but account sync failed",
   "登录失败，请重试": "Login failed, please try again",
   登录失败: "Login failed",
   "登录超时，请重试或使用下方手动解析回调。":
     "Login timed out. Please retry or use manual callback parsing below.",
+  "授权完成，正在同步账号列表...": "Authorization completed. Syncing the account list...",
+  "授权已完成，但账号列表暂未出现该账号":
+    "Authorization completed, but the account is not visible in the account list yet.",
+  "授权已完成，但当前服务没有返回已登录账号":
+    "Authorization completed, but the current service did not return the logged-in account.",
+  "授权已完成，但账号列表暂未同步成功":
+    "Authorization completed, but the account list has not synced successfully yet.",
   开始登录授权: "start login authorization",
   设备验证码: "Device code",
   "正在等待授权完成...": "waiting for authorization...",

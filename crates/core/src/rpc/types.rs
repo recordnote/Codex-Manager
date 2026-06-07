@@ -198,67 +198,6 @@ pub struct AccountSummary {
     pub quota_capacity_secondary_window_tokens: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AccountListParams {
-    pub page: i64,
-    pub page_size: i64,
-    pub query: Option<String>,
-    pub filter: Option<String>,
-    pub group_filter: Option<String>,
-}
-
-impl Default for AccountListParams {
-    /// 函数 `default`
-    ///
-    /// 作者: gaohongshun
-    ///
-    /// 时间: 2026-04-02
-    ///
-    /// # 参数
-    /// 无
-    ///
-    /// # 返回
-    /// 返回函数执行结果
-    fn default() -> Self {
-        Self {
-            page: 1,
-            page_size: 5,
-            query: None,
-            filter: None,
-            group_filter: None,
-        }
-    }
-}
-
-impl AccountListParams {
-    /// 函数 `normalized`
-    ///
-    /// 作者: gaohongshun
-    ///
-    /// 时间: 2026-04-02
-    ///
-    /// # 参数
-    /// - self: 参数 self
-    ///
-    /// # 返回
-    /// 返回函数执行结果
-    pub fn normalized(self) -> Self {
-        // 中文注释：分页参数小于 1 时回退到默认值，避免出现负偏移或零页大小。
-        Self {
-            page: if self.page < 1 { 1 } else { self.page },
-            page_size: if self.page_size < 1 {
-                5
-            } else {
-                self.page_size
-            },
-            query: self.query,
-            filter: self.filter,
-            group_filter: self.group_filter,
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountListResult {

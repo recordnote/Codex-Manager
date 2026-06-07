@@ -1,5 +1,5 @@
 use codexmanager_core::{
-    rpc::types::{AccountListParams, AccountListResult, AccountSummary},
+    rpc::types::{AccountListResult, AccountSummary},
     storage::{
         Account, AccountMetadata, AccountQuotaCapacityOverride, AccountSubscription, Token,
         UsageSnapshotRecord,
@@ -11,14 +11,6 @@ use crate::account_plan::resolve_effective_account_plan;
 use crate::storage_helpers::open_storage;
 
 const DEFAULT_ACCOUNT_PAGE_SIZE: i64 = 5;
-const MAX_ACCOUNT_PAGE_SIZE: i64 = 500;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AccountFilter {
-    All,
-    Active,
-    Low,
-}
 
 #[derive(Debug)]
 pub(crate) struct AccountSummaryContext {
@@ -82,256 +74,33 @@ impl From<&Account> for AccountSummaryParts {
 ///
 /// # 返回
 /// 返回函数执行结果
-pub(crate) fn read_accounts(
-    params: AccountListParams,
-    pagination_requested: bool,
-) -> Result<AccountListResult, String> {
-    // 中文注释：账号页需要后端分页，但仪表盘/日志等全局功能仍依赖全量账号列表；
-    // 因此这里兼容“无分页参数时返回全量，有分页参数时返回当前页”两种模式。
-    let params = params.normalized();
+pub(crate) fn read_accounts() -> Result<AccountListResult, String> {
     let storage = open_storage().ok_or_else(|| "open storage failed".to_string())?;
-    let query = normalize_optional_text(params.query);
-    let group_filter = normalize_optional_text(params.group_filter);
-    let filter = normalize_filter(params.filter);
-
-    if filter == AccountFilter::All {
-        if pagination_requested {
-            let page_size = normalize_page_size(params.page_size);
-            let total = storage
-                .account_count_filtered(query.as_deref(), group_filter.as_deref())
-                .map_err(|err| format!("count accounts failed: {err}"))?;
-            let page = clamp_page(params.page, total, page_size);
-            let offset = (page - 1) * page_size;
-            let accounts = storage
-                .list_accounts_paginated(
-                    query.as_deref(),
-                    group_filter.as_deref(),
-                    offset,
-                    page_size,
-                )
-                .map_err(|err| format!("list accounts failed: {err}"))?;
-            let items = to_account_summaries(&storage, accounts)?;
-            return Ok(AccountListResult {
-                items,
-                total,
-                page,
-                page_size,
-            });
-        }
-
-        let accounts = storage
-            .list_accounts_filtered(query.as_deref(), group_filter.as_deref())
-            .map_err(|err| format!("list accounts failed: {err}"))?;
-        let total = accounts.len() as i64;
-        let items = to_account_summaries(&storage, accounts)?;
-        return Ok(AccountListResult {
-            items,
-            total,
-            page: 1,
-            page_size: if total > 0 {
-                total
-            } else {
-                DEFAULT_ACCOUNT_PAGE_SIZE
-            },
-        });
-    }
-
-    if pagination_requested {
-        let total =
-            filtered_account_count(&storage, filter, query.as_deref(), group_filter.as_deref())?;
-        let page_size = normalize_page_size(params.page_size);
-        let page = clamp_page(params.page, total, page_size);
-        let offset = (page - 1) * page_size;
-        let paged = filtered_accounts(
-            &storage,
-            filter,
-            query.as_deref(),
-            group_filter.as_deref(),
-            Some((offset, page_size)),
-        )?;
-        let items = to_account_summaries(&storage, paged)?;
-        return Ok(AccountListResult {
-            items,
-            total,
-            page,
-            page_size,
-        });
-    }
-
-    let accounts = filtered_accounts(
-        &storage,
-        filter,
-        query.as_deref(),
-        group_filter.as_deref(),
-        None,
-    )?;
+    let db_path = std::env::var("CODEXMANAGER_DB_PATH").unwrap_or_else(|_| "<unset>".to_string());
+    let accounts = storage
+        .list_accounts()
+        .map_err(|err| format!("list accounts failed: {err}"))?;
     let total = accounts.len() as i64;
     let items = to_account_summaries(&storage, accounts)?;
+    let page_size = if total > 0 {
+        total
+    } else {
+        DEFAULT_ACCOUNT_PAGE_SIZE
+    };
+
+    log::info!(
+        "account/list read: db_path={} total={} item_count={}",
+        db_path,
+        total,
+        items.len()
+    );
 
     Ok(AccountListResult {
         items,
         total,
         page: 1,
-        page_size: if total > 0 {
-            total
-        } else {
-            DEFAULT_ACCOUNT_PAGE_SIZE
-        },
+        page_size,
     })
-}
-
-/// 函数 `normalize_optional_text`
-///
-/// 作者: gaohongshun
-///
-/// 时间: 2026-04-02
-///
-/// # 参数
-/// - value: 参数 value
-///
-/// # 返回
-/// 返回函数执行结果
-fn normalize_optional_text(value: Option<String>) -> Option<String> {
-    let trimmed = value.unwrap_or_default().trim().to_string();
-    if trimmed.is_empty() || trimmed == "all" {
-        return None;
-    }
-    Some(trimmed)
-}
-
-/// 函数 `normalize_filter`
-///
-/// 作者: gaohongshun
-///
-/// 时间: 2026-04-02
-///
-/// # 参数
-/// - value: 参数 value
-///
-/// # 返回
-/// 返回函数执行结果
-fn normalize_filter(value: Option<String>) -> AccountFilter {
-    match value
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "active" => AccountFilter::Active,
-        "low" => AccountFilter::Low,
-        _ => AccountFilter::All,
-    }
-}
-
-/// 函数 `normalize_page_size`
-///
-/// 作者: gaohongshun
-///
-/// 时间: 2026-04-02
-///
-/// # 参数
-/// - value: 参数 value
-///
-/// # 返回
-/// 返回函数执行结果
-fn normalize_page_size(value: i64) -> i64 {
-    value.clamp(1, MAX_ACCOUNT_PAGE_SIZE)
-}
-
-/// 函数 `clamp_page`
-///
-/// 作者: gaohongshun
-///
-/// 时间: 2026-04-02
-///
-/// # 参数
-/// - page: 参数 page
-/// - total: 参数 total
-/// - page_size: 参数 page_size
-///
-/// # 返回
-/// 返回函数执行结果
-fn clamp_page(page: i64, total: i64, page_size: i64) -> i64 {
-    let normalized_page = page.max(1);
-    let total_pages = if total <= 0 {
-        1
-    } else {
-        ((total + page_size - 1) / page_size).max(1)
-    };
-    normalized_page.min(total_pages)
-}
-
-/// 函数 `filtered_account_count`
-///
-/// 作者: gaohongshun
-///
-/// 时间: 2026-04-02
-///
-/// # 参数
-/// - storage: 参数 storage
-/// - filter: 参数 filter
-/// - query: 参数 query
-/// - group_filter: 参数 group_filter
-///
-/// # 返回
-/// 返回函数执行结果
-fn filtered_account_count(
-    storage: &codexmanager_core::storage::Storage,
-    filter: AccountFilter,
-    query: Option<&str>,
-    group_filter: Option<&str>,
-) -> Result<i64, String> {
-    match filter {
-        AccountFilter::All => storage
-            .account_count_filtered(query, group_filter)
-            .map_err(|err| format!("count accounts failed: {err}")),
-        AccountFilter::Active => storage
-            .account_count_active_available(query, group_filter)
-            .map_err(|err| format!("count active accounts failed: {err}")),
-        AccountFilter::Low => storage
-            .account_count_low_quota(query, group_filter)
-            .map_err(|err| format!("count low quota accounts failed: {err}")),
-    }
-}
-
-/// 函数 `filtered_accounts`
-///
-/// 作者: gaohongshun
-///
-/// 时间: 2026-04-02
-///
-/// # 参数
-/// - storage: 参数 storage
-/// - filter: 参数 filter
-/// - query: 参数 query
-/// - group_filter: 参数 group_filter
-/// - pagination: 参数 pagination
-///
-/// # 返回
-/// 返回函数执行结果
-fn filtered_accounts(
-    storage: &codexmanager_core::storage::Storage,
-    filter: AccountFilter,
-    query: Option<&str>,
-    group_filter: Option<&str>,
-    pagination: Option<(i64, i64)>,
-) -> Result<Vec<Account>, String> {
-    match filter {
-        AccountFilter::All => match pagination {
-            Some((offset, limit)) => storage
-                .list_accounts_paginated(query, group_filter, offset, limit)
-                .map_err(|err| format!("list accounts failed: {err}")),
-            None => storage
-                .list_accounts_filtered(query, group_filter)
-                .map_err(|err| format!("list accounts failed: {err}")),
-        },
-        AccountFilter::Active => storage
-            .list_accounts_active_available(query, group_filter, pagination)
-            .map_err(|err| format!("list active accounts failed: {err}")),
-        AccountFilter::Low => storage
-            .list_accounts_low_quota(query, group_filter, pagination)
-            .map_err(|err| format!("list low quota accounts failed: {err}")),
-    }
 }
 
 /// 函数 `to_account_summary_with_reason`

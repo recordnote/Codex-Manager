@@ -11,12 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
 import { appClient } from "@/lib/api/app-client";
 import { useRuntimeCapabilities } from "@/hooks/useRuntimeCapabilities";
 import { useI18n } from "@/lib/i18n/provider";
@@ -76,21 +70,21 @@ function PartnerTable({
   emptyVisualLabel: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border/50 bg-background/40">
-      <Table className="min-w-full">
-        <TableBody>
-          {items.map((item, index) => (
-            <PartnerTableRow
-              key={item.key}
-              item={item}
-              isFirst={index === 0}
-              onOpenLink={onOpenLink}
-              translate={translate}
-              emptyVisualLabel={emptyVisualLabel}
-            />
-          ))}
-        </TableBody>
-      </Table>
+    <div
+      className="overflow-hidden rounded-xl border border-border/50 bg-background/40"
+      data-testid="author-partner-list"
+    >
+      <div className="divide-y divide-border/50">
+        {items.map((item) => (
+          <PartnerTableRow
+            key={item.key}
+            item={item}
+            onOpenLink={onOpenLink}
+            translate={translate}
+            emptyVisualLabel={emptyVisualLabel}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -132,13 +126,11 @@ function PartnerLogo({
 
 function PartnerTableRow({
   item,
-  isFirst,
   onOpenLink,
   translate,
   emptyVisualLabel,
 }: {
   item: SponsorLinkItem;
-  isFirst: boolean;
   onOpenLink: (url: string) => Promise<void>;
   translate: (message: string) => string;
   emptyVisualLabel: string;
@@ -154,44 +146,52 @@ function PartnerTableRow({
   );
 
   return (
-    <TableRow className={isFirst ? "border-b-0" : ""}>
-      <TableCell className="w-[180px] p-5 align-middle">
-        <div className="flex items-center justify-center rounded-xl border border-border/50 bg-white/95 p-4">
+    <div className="grid gap-5 p-5 md:grid-cols-[120px_minmax(0,1fr)]">
+      <div className="flex min-w-0 items-center md:justify-center">
+        <div className="flex w-full max-w-[180px] items-center justify-center rounded-xl border border-border/50 bg-white/95 p-4">
           <PartnerLogo
             item={item}
             translate={translate}
             emptyVisualLabel={emptyVisualLabel}
           />
         </div>
-      </TableCell>
-      <TableCell className="p-5 align-middle">
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold text-foreground">
-              {translatedName}
-            </h3>
-            <div className="space-y-2 text-sm leading-7 text-muted-foreground">
-              {descriptionLines.map((line) => (
-                <p key={line}>{line}</p>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void onOpenLink(item.href);
-              }}
-              className="rounded-full"
-            >
-              {translate(item.actionLabel)}
-              <ExternalLink data-icon="inline-end" />
-            </Button>
+      </div>
+      <div className="min-w-0 space-y-3">
+        <div className="space-y-1">
+          <h3 className="break-words text-base font-semibold text-foreground [overflow-wrap:anywhere]">
+            {translatedName}
+          </h3>
+          <div
+            className="space-y-2 text-sm leading-7 text-muted-foreground"
+            data-testid={`author-partner-description-${item.key}`}
+          >
+            {descriptionLines.map((line) => (
+              <p
+                key={line}
+                className="whitespace-normal break-words [overflow-wrap:anywhere]"
+              >
+                {line}
+              </p>
+            ))}
           </div>
         </div>
-      </TableCell>
-    </TableRow>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              void onOpenLink(item.href);
+            }}
+            className="max-w-full rounded-full"
+          >
+            <span className="min-w-0 truncate">
+              {translate(item.actionLabel)}
+            </span>
+            <ExternalLink data-icon="inline-end" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -142,7 +142,8 @@ async function mockRuntimeAndRpc(
                 {
                   key: "remote-sponsor",
                   name: "远程赞助商",
-                  description: "从独立管理站返回的赞助内容。",
+                  description:
+                    "感谢 **AIXiamo官方网站｜Codex / ChatGPT Pro** 赞助 CodexManager。 AIXiamo 面向 Codex CLI、 Claude Code、 Gemini CLI 等开发者场景，提供 ChatGPT Plus、ChatGPT Pro 5x / 20x、Codex 相关服务、Claude、Gemini、Grok 等 AI 会员开通与使用协助。",
                   href: "https://example.com/sponsor",
                   imageSrc: "https://example.com/sponsor.png",
                   imageAlt: "远程赞助商",
@@ -233,6 +234,36 @@ test("author page splits sponsor content and contact content into two tabs", asy
   await expect(
     page.getByRole("heading", { name: "远程服务器推荐" }),
   ).toBeVisible();
+
+  const sponsorDescription = page.getByTestId(
+    "author-partner-description-remote-sponsor",
+  );
+  await expect(sponsorDescription).toBeVisible();
+
+  const sponsorDescriptionMetrics = await sponsorDescription.evaluate((node) => {
+    const paragraph = node.querySelector("p");
+    return {
+      clientWidth: node.clientWidth,
+      scrollWidth: node.scrollWidth,
+      paragraphHeight: paragraph?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  expect(sponsorDescriptionMetrics.scrollWidth).toBeLessThanOrEqual(
+    sponsorDescriptionMetrics.clientWidth + 1,
+  );
+  expect(sponsorDescriptionMetrics.paragraphHeight).toBeGreaterThan(32);
+
+  const partnerListOverflow = await page
+    .getByTestId("author-partner-list")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => node.scrollWidth - node.clientWidth),
+    );
+  expect(partnerListOverflow.every((overflow) => overflow <= 1)).toBe(true);
+
+  const pageHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(pageHorizontalOverflow).toBeLessThanOrEqual(1);
 
   await page.getByRole("tab", { name: "联系作者" }).click();
 

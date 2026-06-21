@@ -628,6 +628,130 @@ fn request_logs_filtered_summary_aggregates_counts_and_tokens() {
 }
 
 #[test]
+fn request_logs_unfiltered_summary_keeps_usage_after_logs_are_cleared() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+
+    for (index, status_code, total_tokens, estimated_cost_usd) in [
+        (0_i64, Some(200_i64), Some(30_i64), Some(0.01)),
+        (1_i64, Some(502_i64), Some(70_i64), Some(0.02)),
+    ] {
+        let created_at = 3_000 + index;
+        let request_log_id = storage
+            .insert_request_log(&RequestLog {
+                trace_id: Some(format!("trc-cleared-summary-{index}")),
+                key_id: Some("gk-cleared-summary".to_string()),
+                account_id: Some("acc-cleared-summary".to_string()),
+                request_path: "/v1/responses".to_string(),
+                method: "POST".to_string(),
+                status_code,
+                created_at,
+                ..Default::default()
+            })
+            .expect("insert request log");
+        storage
+            .insert_request_token_stat(&RequestTokenStat {
+                request_log_id,
+                key_id: Some("gk-cleared-summary".to_string()),
+                account_id: Some("acc-cleared-summary".to_string()),
+                model: Some("gpt-5".to_string()),
+                total_tokens,
+                estimated_cost_usd,
+                created_at,
+                ..RequestTokenStat::default()
+            })
+            .expect("insert token stat");
+    }
+
+    storage.clear_request_logs().expect("clear request logs");
+
+    let summary = storage
+        .summarize_request_logs_filtered(None, None, None, None)
+        .expect("summarize unfiltered cleared usage");
+    assert_eq!(summary.count, 2);
+    assert_eq!(summary.success_count, 1);
+    assert_eq!(summary.error_count, 1);
+    assert_eq!(summary.total_tokens, 100);
+    assert_eq!(summary.estimated_cost_usd, 0.03);
+
+    let hourly_summary = storage
+        .summarize_request_logs_filtered(None, None, Some(0), Some(3_600))
+        .expect("summarize hourly cleared usage");
+    assert_eq!(hourly_summary.count, 2);
+    assert_eq!(hourly_summary.success_count, 1);
+    assert_eq!(hourly_summary.error_count, 1);
+    assert_eq!(hourly_summary.total_tokens, 100);
+    assert_eq!(hourly_summary.estimated_cost_usd, 0.03);
+
+    let filtered = storage
+        .summarize_request_logs_filtered(None, Some("5xx"), None, None)
+        .expect("summarize filtered cleared logs");
+    assert_eq!(filtered.count, 0);
+    assert_eq!(filtered.total_tokens, 0);
+}
+
+#[test]
+fn keyed_request_logs_unfiltered_summary_keeps_usage_after_logs_are_cleared() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+
+    for (index, key_id, total_tokens) in [
+        (0_i64, "gk-cleared-owned", Some(30_i64)),
+        (1_i64, "gk-cleared-other", Some(70_i64)),
+    ] {
+        let created_at = 3_000 + index;
+        let request_log_id = storage
+            .insert_request_log(&RequestLog {
+                trace_id: Some(format!("trc-keyed-cleared-summary-{index}")),
+                key_id: Some(key_id.to_string()),
+                request_path: "/v1/responses".to_string(),
+                method: "POST".to_string(),
+                status_code: Some(200),
+                created_at,
+                ..Default::default()
+            })
+            .expect("insert request log");
+        storage
+            .insert_request_token_stat(&RequestTokenStat {
+                request_log_id,
+                key_id: Some(key_id.to_string()),
+                model: Some("gpt-5".to_string()),
+                total_tokens,
+                estimated_cost_usd: Some(0.01),
+                created_at,
+                ..RequestTokenStat::default()
+            })
+            .expect("insert token stat");
+    }
+
+    storage.clear_request_logs().expect("clear request logs");
+
+    let summary = storage
+        .summarize_request_logs_filtered_for_keys(
+            None,
+            None,
+            None,
+            None,
+            &["gk-cleared-owned".to_string()],
+        )
+        .expect("summarize keyed cleared usage");
+    assert_eq!(summary.count, 1);
+    assert_eq!(summary.total_tokens, 30);
+
+    let filtered = storage
+        .summarize_request_logs_filtered_for_keys(
+            None,
+            Some("2xx"),
+            None,
+            None,
+            &["gk-cleared-owned".to_string()],
+        )
+        .expect("summarize keyed filtered cleared logs");
+    assert_eq!(filtered.count, 0);
+    assert_eq!(filtered.total_tokens, 0);
+}
+
+#[test]
 fn request_logs_support_time_range_filters() {
     let storage = Storage::open_in_memory().expect("open");
     storage.init().expect("init");

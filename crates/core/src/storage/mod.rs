@@ -491,7 +491,7 @@ pub struct RequestLogTodaySummary {
     pub estimated_cost_usd: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RequestLogQuerySummary {
     pub count: i64,
     pub success_count: i64,

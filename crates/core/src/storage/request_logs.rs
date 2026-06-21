@@ -542,6 +542,9 @@ impl Storage {
         if empty_optional_range(start_ts, end_ts) {
             return Ok(empty_request_log_query_summary());
         }
+        if should_summarize_request_logs_from_token_stats(query, status_filter) {
+            return self.summarize_request_token_stats_query_between(start_ts, end_ts);
+        }
         let include_account_lookup = self.has_table("accounts")?;
         let filters = build_request_log_filters(
             query,
@@ -599,6 +602,10 @@ impl Storage {
     ) -> Result<RequestLogQuerySummary> {
         if empty_optional_range(start_ts, end_ts) {
             return Ok(empty_request_log_query_summary());
+        }
+        if should_summarize_request_logs_from_token_stats(query, status_filter) {
+            return self
+                .summarize_request_token_stats_query_for_keys_between(start_ts, end_ts, key_ids);
         }
         let Some(key_filter) = KeyIdSqlFilter::create(self, "r.key_id", key_ids)? else {
             return Ok(empty_request_log_query_summary());
@@ -1237,13 +1244,25 @@ fn empty_request_log_today_summary() -> RequestLogTodaySummary {
 }
 
 fn empty_request_log_query_summary() -> RequestLogQuerySummary {
-    RequestLogQuerySummary {
-        count: 0,
-        success_count: 0,
-        error_count: 0,
-        total_tokens: 0,
-        estimated_cost_usd: 0.0,
+    RequestLogQuerySummary::default()
+}
+
+fn should_summarize_request_logs_from_token_stats(
+    query: Option<&str>,
+    status_filter: Option<&str>,
+) -> bool {
+    let has_query = query.is_some_and(|value| !value.trim().is_empty());
+    if has_query {
+        return false;
     }
+    matches!(
+        status_filter
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "" | "all"
+    )
 }
 
 #[cfg(test)]

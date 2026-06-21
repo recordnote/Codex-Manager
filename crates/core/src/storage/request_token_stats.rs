@@ -4,8 +4,9 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use super::key_id_filters::TempKeyIdFilter;
 use super::{
     now_ts, ApiKeyModelTokenUsageSummary, ApiKeyTokenUsageSummary, DailyTokenUsageRollup,
-    MemberDashboardUsageBreakdownSnapshot, RequestLogTodaySummary, RequestTokenStat,
-    SourceTokenUsageRollup, Storage, TokenUsageRollup, TokenUsageSummary, UserTokenUsageRollup,
+    MemberDashboardUsageBreakdownSnapshot, RequestLogQuerySummary, RequestLogTodaySummary,
+    RequestTokenStat, SourceTokenUsageRollup, Storage, TokenUsageRollup, TokenUsageSummary,
+    UserTokenUsageRollup,
 };
 
 const DEFAULT_REQUEST_TOKEN_STATS_RETAIN_DAYS: i64 = 14;
@@ -550,6 +551,118 @@ impl Storage {
             output_tokens: 0,
             reasoning_output_tokens: 0,
             estimated_cost_usd: 0.0,
+        })
+    }
+
+    pub fn summarize_request_token_stats_query_between(
+        &self,
+        start_ts: Option<i64>,
+        end_ts: Option<i64>,
+    ) -> Result<RequestLogQuerySummary> {
+        if is_empty_optional_range(start_ts, end_ts) {
+            return Ok(RequestLogQuerySummary::default());
+        }
+        let raw = raw_token_rollup_select(
+            "",
+            optional_raw_stats_range_clause(start_ts, end_ts),
+            "",
+            false,
+        );
+        let hourly = hourly_token_rollup_select(
+            "",
+            optional_hourly_rollup_range_clause(start_ts, end_ts),
+            "",
+        );
+        let sql = format!(
+            "WITH combined AS (
+                {raw}
+                UNION ALL
+                {hourly}
+             )
+             SELECT
+                {COMBINED_ROLLUP_COLUMNS}
+             FROM combined"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let usage = if start_ts.is_none() && end_ts.is_none() {
+            stmt.query_row([], |row| token_usage_rollup_from_row(row, 0))?
+        } else {
+            let params = [
+                start_ts.map(Value::Integer).unwrap_or(Value::Null),
+                end_ts.map(Value::Integer).unwrap_or(Value::Null),
+            ];
+            stmt.query_row(params_from_iter(params), |row| {
+                token_usage_rollup_from_row(row, 0)
+            })?
+        };
+        Ok(RequestLogQuerySummary {
+            count: usage.request_count,
+            success_count: usage.success_count,
+            error_count: usage.error_count,
+            total_tokens: usage.total_tokens,
+            estimated_cost_usd: usage.estimated_cost_usd,
+        })
+    }
+
+    pub fn summarize_request_token_stats_query_for_keys_between(
+        &self,
+        start_ts: Option<i64>,
+        end_ts: Option<i64>,
+        key_ids: &[String],
+    ) -> Result<RequestLogQuerySummary> {
+        if is_empty_optional_range(start_ts, end_ts) {
+            return Ok(RequestLogQuerySummary::default());
+        }
+        let Some(key_filter) = TempKeyIdFilter::create(self, key_ids)? else {
+            return Ok(RequestLogQuerySummary::default());
+        };
+        let raw_key_clause = key_filter.exists_clause("t.key_id");
+        let hourly_key_clause = key_filter.exists_clause("NULLIF(TRIM(h.key_id), '')");
+        let raw = raw_token_rollup_select(
+            "",
+            &format!(
+                "{}{raw_key_clause}",
+                optional_raw_stats_range_clause(start_ts, end_ts)
+            ),
+            "",
+            false,
+        );
+        let hourly = hourly_token_rollup_select(
+            "",
+            &format!(
+                "{}{hourly_key_clause}",
+                optional_hourly_rollup_range_clause(start_ts, end_ts)
+            ),
+            "",
+        );
+        let sql = format!(
+            "WITH combined AS (
+                {raw}
+                UNION ALL
+                {hourly}
+             )
+             SELECT
+                {COMBINED_ROLLUP_COLUMNS}
+             FROM combined"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let usage = if start_ts.is_none() && end_ts.is_none() {
+            stmt.query_row([], |row| token_usage_rollup_from_row(row, 0))?
+        } else {
+            let params = [
+                start_ts.map(Value::Integer).unwrap_or(Value::Null),
+                end_ts.map(Value::Integer).unwrap_or(Value::Null),
+            ];
+            stmt.query_row(params_from_iter(params), |row| {
+                token_usage_rollup_from_row(row, 0)
+            })?
+        };
+        Ok(RequestLogQuerySummary {
+            count: usage.request_count,
+            success_count: usage.success_count,
+            error_count: usage.error_count,
+            total_tokens: usage.total_tokens,
+            estimated_cost_usd: usage.estimated_cost_usd,
         })
     }
 

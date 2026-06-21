@@ -898,7 +898,10 @@ impl Storage {
         task_id: Option<&str>,
         limit: i64,
     ) -> Result<Vec<PluginRunLog>> {
-        let normalized_limit = limit.max(1);
+        if limit <= 0 {
+            return Ok(Vec::new());
+        }
+
         let mut sql = String::from(
             "SELECT id, plugin_id, task_id, run_type, status, started_at, finished_at, duration_ms, output_json, error
              FROM plugin_run_logs",
@@ -918,7 +921,7 @@ impl Storage {
             sql.push_str(&where_clauses.join(" AND "));
         }
         sql.push_str(" ORDER BY started_at DESC, id DESC LIMIT ?");
-        params.push(Value::Integer(normalized_limit));
+        params.push(Value::Integer(limit));
 
         let mut stmt = self.conn.prepare(&sql)?;
         let mut rows = stmt.query(params_from_iter(params))?;
@@ -935,7 +938,10 @@ impl Storage {
         task_id: Option<&str>,
         limit: i64,
     ) -> Result<Vec<PluginRunLogListSummary>> {
-        let normalized_limit = limit.max(1);
+        if limit <= 0 {
+            return Ok(Vec::new());
+        }
+
         let mut sql = String::from(
             "SELECT
                 l.id,
@@ -969,7 +975,7 @@ impl Storage {
             sql.push_str(&where_clauses.join(" AND "));
         }
         sql.push_str(" ORDER BY l.started_at DESC, l.id DESC LIMIT ?");
-        params.push(Value::Integer(normalized_limit));
+        params.push(Value::Integer(limit));
 
         let mut stmt = self.conn.prepare(&sql)?;
         let mut rows = stmt.query(params_from_iter(params))?;
@@ -1951,6 +1957,21 @@ mod tests {
             logs[1].output_json.as_deref(),
             Some(serde_json::json!({ "ok": true }).to_string().as_str())
         );
+    }
+
+    #[test]
+    fn list_plugin_run_logs_short_circuit_non_positive_limits() {
+        let storage = Storage::open_in_memory().expect("open storage");
+
+        let raw_logs = storage
+            .list_plugin_run_logs(None, None, 0)
+            .expect("zero raw log limit should not query storage");
+        let summaries = storage
+            .list_plugin_run_log_summaries(None, None, -1)
+            .expect("negative summary limit should not query storage");
+
+        assert!(raw_logs.is_empty());
+        assert!(summaries.is_empty());
     }
 
     #[test]

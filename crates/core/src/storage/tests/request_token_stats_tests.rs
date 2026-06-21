@@ -706,6 +706,24 @@ fn rollup_request_token_stats_short_circuits_empty_raw_stats() {
 }
 
 #[test]
+fn clear_request_logs_skips_rollup_work_when_empty() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+
+    storage.clear_request_logs().expect("clear empty logs");
+
+    let hourly_rows: i64 = storage
+        .conn
+        .query_row(
+            "SELECT COUNT(1) FROM request_token_stat_hourly_rollups",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count hourly rollups");
+    assert_eq!(hourly_rows, 0);
+}
+
+#[test]
 fn dashboard_rollups_survive_cleared_request_logs() {
     let storage = Storage::open_in_memory().expect("open");
     storage.init().expect("init");

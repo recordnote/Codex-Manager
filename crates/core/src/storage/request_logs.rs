@@ -641,11 +641,13 @@ impl Storage {
     /// 返回函数执行结果
     pub fn clear_request_logs(&self) -> Result<()> {
         // 中文注释：先把状态计数写入 hourly rollup，再移除可浏览请求明细，避免清日志后仪表盘成功率丢失。
-        self.rollup_all_request_token_stats()?;
-        self.conn.execute("DELETE FROM request_logs", [])?;
-        let _ = self
-            .conn
-            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;");
+        let rolled_up = self.rollup_all_request_token_stats()?;
+        let deleted_logs = self.conn.execute("DELETE FROM request_logs", [])?;
+        if rolled_up.saturating_add(deleted_logs) > 0 {
+            let _ = self
+                .conn
+                .execute_batch("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;");
+        }
         Ok(())
     }
 

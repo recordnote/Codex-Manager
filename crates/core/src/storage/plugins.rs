@@ -607,6 +607,36 @@ impl Storage {
         Ok(items)
     }
 
+    pub fn repair_plugin_task_schedules(&self, plugin_id: Option<&str>, now: i64) -> Result<usize> {
+        let updated_at = now_ts();
+        if let Some(plugin_id) = plugin_id {
+            self.conn.execute(
+                "UPDATE plugin_tasks
+                 SET next_run_at = COALESCE(last_run_at + interval_seconds, ?1),
+                     updated_at = ?2
+                 WHERE plugin_id = ?3
+                   AND enabled = 1
+                   AND schedule_kind <> 'manual'
+                   AND next_run_at IS NULL
+                   AND interval_seconds IS NOT NULL
+                   AND interval_seconds > 0",
+                (now, updated_at, plugin_id),
+            )
+        } else {
+            self.conn.execute(
+                "UPDATE plugin_tasks
+                 SET next_run_at = COALESCE(last_run_at + interval_seconds, ?1),
+                     updated_at = ?2
+                 WHERE enabled = 1
+                   AND schedule_kind <> 'manual'
+                   AND next_run_at IS NULL
+                   AND interval_seconds IS NOT NULL
+                   AND interval_seconds > 0",
+                (now, updated_at),
+            )
+        }
+    }
+
     /// 函数 `find_plugin_task`
     ///
     /// 作者: gaohongshun
@@ -1642,6 +1672,95 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["first-plugin::repair", "second-plugin::repair"]
         );
+    }
+
+    #[test]
+    fn repair_plugin_task_schedules_batches_enabled_unscheduled_interval_tasks() {
+        let storage = Storage::open_in_memory().expect("open storage");
+        storage.init().expect("init storage");
+
+        let mut from_last_run =
+            plugin_task("first-plugin", "from-last-run", "interval", true, None);
+        from_last_run.last_run_at = Some(900);
+        from_last_run.last_status = Some("ok".to_string());
+        let uses_now = plugin_task("first-plugin", "uses-now", "interval", true, None);
+        let mut no_positive_interval =
+            plugin_task("first-plugin", "zero-interval", "interval", true, None);
+        no_positive_interval.interval_seconds = Some(0);
+
+        storage
+            .replace_plugin_install(
+                &plugin_install("first-plugin", "enabled"),
+                &[
+                    from_last_run,
+                    uses_now,
+                    plugin_task("first-plugin", "manual", "manual", true, None),
+                    plugin_task("first-plugin", "disabled", "interval", false, None),
+                    plugin_task("first-plugin", "already-set", "interval", true, Some(20)),
+                    no_positive_interval,
+                ],
+            )
+            .expect("seed first plugin");
+        storage
+            .replace_plugin_install(
+                &plugin_install("second-plugin", "enabled"),
+                &[plugin_task(
+                    "second-plugin",
+                    "still-unscheduled",
+                    "interval",
+                    true,
+                    None,
+                )],
+            )
+            .expect("seed second plugin");
+
+        let repaired = storage
+            .repair_plugin_task_schedules(Some("first-plugin"), 1000)
+            .expect("repair first plugin schedules");
+        assert_eq!(repaired, 2);
+
+        let from_last_run = storage
+            .find_plugin_task("first-plugin::from-last-run")
+            .expect("read from last run")
+            .expect("task exists");
+        assert_eq!(from_last_run.next_run_at, Some(960));
+        assert_eq!(from_last_run.last_run_at, Some(900));
+        assert_eq!(from_last_run.last_status.as_deref(), Some("ok"));
+
+        let uses_now = storage
+            .find_plugin_task("first-plugin::uses-now")
+            .expect("read uses now")
+            .expect("task exists");
+        assert_eq!(uses_now.next_run_at, Some(1000));
+
+        for task_id in [
+            "first-plugin::manual",
+            "first-plugin::disabled",
+            "first-plugin::zero-interval",
+            "second-plugin::still-unscheduled",
+        ] {
+            let task = storage
+                .find_plugin_task(task_id)
+                .expect("read skipped task")
+                .expect("task exists");
+            assert_eq!(task.next_run_at, None, "{task_id} should stay unscheduled");
+        }
+
+        let already_set = storage
+            .find_plugin_task("first-plugin::already-set")
+            .expect("read already set")
+            .expect("task exists");
+        assert_eq!(already_set.next_run_at, Some(20));
+
+        let repaired_all = storage
+            .repair_plugin_task_schedules(None, 2000)
+            .expect("repair all plugin schedules");
+        assert_eq!(repaired_all, 1);
+        let second = storage
+            .find_plugin_task("second-plugin::still-unscheduled")
+            .expect("read second task")
+            .expect("task exists");
+        assert_eq!(second.next_run_at, Some(2000));
     }
 
     #[test]

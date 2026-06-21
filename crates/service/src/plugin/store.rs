@@ -57,28 +57,10 @@ pub(crate) fn rearm_enabled_interval_tasks_for_plugin(
     plugin_id: Option<&str>,
     now: i64,
 ) -> Result<(), String> {
-    let tasks = storage
-        .list_plugin_tasks_needing_schedule_repair(plugin_id)
-        .map_err(|err| err.to_string())?;
-    for task in tasks {
-        let Some(interval_seconds) = task.interval_seconds.filter(|value| *value > 0) else {
-            continue;
-        };
-        let next_run_at = task
-            .last_run_at
-            .map(|last_run_at| last_run_at + interval_seconds)
-            .unwrap_or(now);
-        storage
-            .update_plugin_task_schedule(
-                &task.id,
-                Some(next_run_at),
-                task.last_run_at,
-                task.last_status.as_deref(),
-                task.last_error.as_deref(),
-            )
-            .map_err(|err| err.to_string())?;
-    }
-    Ok(())
+    storage
+        .repair_plugin_task_schedules(plugin_id, now)
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
 
 /// 函数 `handle_list_installed`

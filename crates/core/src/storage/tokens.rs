@@ -58,6 +58,10 @@ impl Storage {
         access_exp_cutoff_ts: i64,
         limit: usize,
     ) -> Result<Vec<Token>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
         let mut stmt = self.conn.prepare(
             "WITH latest_status AS (
                 SELECT
@@ -937,6 +941,17 @@ mod tests {
             !plan.contains("USE TEMP B-TREE FOR ORDER BY"),
             "expected refresh due query to avoid a temp sort, got {plan}"
         );
+    }
+
+    #[test]
+    fn list_tokens_due_for_refresh_short_circuits_zero_limit() {
+        let storage = Storage::open_in_memory().expect("open storage");
+
+        let tokens = storage
+            .list_tokens_due_for_refresh(100, 200, 0)
+            .expect("zero limit should not query storage");
+
+        assert!(tokens.is_empty());
     }
 
     #[test]

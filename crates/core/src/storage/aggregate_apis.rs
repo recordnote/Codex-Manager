@@ -213,6 +213,19 @@ fn aggregate_api_exists_sql() -> &'static str {
     "SELECT EXISTS(SELECT 1 FROM aggregate_apis WHERE id = ?1)"
 }
 
+fn aggregate_api_overview_stats_sql() -> &'static str {
+    "SELECT
+        COUNT(1) AS source_count,
+        IFNULL(SUM(CASE WHEN balance_query_enabled = 1 THEN 1 ELSE 0 END), 0)
+            AS enabled_balance_query_count,
+        IFNULL(SUM(CASE WHEN last_balance_status = 'success' THEN 1 ELSE 0 END), 0)
+            AS ok_count,
+        IFNULL(SUM(CASE WHEN last_balance_status IN ('error', 'failed') THEN 1 ELSE 0 END), 0)
+            AS error_count,
+        MAX(last_balance_at) AS last_refreshed_at
+     FROM aggregate_apis"
+}
+
 fn aggregate_api_supplier_identity_by_id_sql() -> &'static str {
     "SELECT id, provider_type, supplier_name, url
      FROM aggregate_apis
@@ -592,19 +605,8 @@ impl Storage {
     }
 
     pub fn aggregate_api_overview_stats(&self) -> Result<AggregateApiOverviewStats> {
-        self.conn.query_row(
-            "SELECT
-                COUNT(1) AS source_count,
-                IFNULL(SUM(CASE WHEN balance_query_enabled = 1 THEN 1 ELSE 0 END), 0)
-                    AS enabled_balance_query_count,
-                IFNULL(SUM(CASE WHEN last_balance_status = 'success' THEN 1 ELSE 0 END), 0)
-                    AS ok_count,
-                IFNULL(SUM(CASE WHEN last_balance_status IN ('error', 'failed') THEN 1 ELSE 0 END), 0)
-                    AS error_count,
-                MAX(last_balance_at) AS last_refreshed_at
-             FROM aggregate_apis",
-            [],
-            |row| {
+        self.conn
+            .query_row(aggregate_api_overview_stats_sql(), [], |row| {
                 Ok(AggregateApiOverviewStats {
                     source_count: row.get(0)?,
                     enabled_balance_query_count: row.get(1)?,
@@ -612,8 +614,7 @@ impl Storage {
                     error_count: row.get(3)?,
                     last_refreshed_at: row.get(4)?,
                 })
-            },
-        )
+            })
     }
 
     pub fn list_aggregate_api_balance_jsons(&self) -> Result<Vec<String>> {
@@ -2623,6 +2624,21 @@ mod supplier_model_tests {
         assert_eq!(stats.ok_count, 1);
         assert_eq!(stats.error_count, 2);
         assert_eq!(stats.last_refreshed_at, Some(now.saturating_add(10)));
+
+        let details = collect_query_plan_details(
+            &storage,
+            &format!("EXPLAIN QUERY PLAN {}", aggregate_api_overview_stats_sql()),
+        );
+        assert!(
+            details
+                .iter()
+                .any(|detail| detail.contains("scan aggregate_apis")),
+            "overview stats should scan aggregate_apis directly, got {details:?}"
+        );
+        assert!(
+            !details.iter().any(|detail| detail.contains("secret")),
+            "overview stats should not join aggregate api secret tables, got {details:?}"
+        );
 
         assert_eq!(
             storage

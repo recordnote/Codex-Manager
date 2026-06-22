@@ -5404,3 +5404,36 @@
   - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
   - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
   - Continue feature removal only with current call-site evidence plus tests proving it is safe.
+## 2026-06-22 tail marker - aggregate API overview stats SQL helper
+
+- Latest completed slice in this continuation:
+  - Scanned `aggregate_apis`, `plugins`, and `request_logs` storage after the model catalog count helper slice.
+  - Confirmed `aggregate_api_overview_stats(...)` is used by quota read paths in `crates/service/src/quota/read.rs` and still kept its overview SQL inline.
+  - File touched: `crates/core/src/storage/aggregate_apis.rs`.
+  - Added storage-local SQL helper:
+    - `aggregate_api_overview_stats_sql()`
+  - Updated production method `aggregate_api_overview_stats(...)` to use the helper while preserving count, balance-query, status, and latest-refresh aggregation semantics.
+  - Expanded EXPLAIN coverage:
+    - `aggregate_api_overview_stats_reads_counts_without_full_rows` now verifies the overview query scans `aggregate_apis` directly and does not join aggregate API secret tables.
+- Validation:
+  - `cargo test -p codexmanager-core aggregate_api_overview_stats_reads_counts_without_full_rows -- --nocapture` passed:
+    - 1 matching core library test.
+  - `cargo fmt --check` passed.
+  - `cargo test -p codexmanager-core aggregate_apis -- --nocapture` passed:
+    - 29 matching core library tests.
+  - `cargo test -p codexmanager-core` passed:
+    - 338 core library tests.
+    - 7 auth integration tests.
+    - 29 storage integration tests.
+    - 1 usage integration test.
+    - 1 version integration test.
+    - doc-tests with 0 tests.
+- Notes:
+  - No SQLite migration or new index was added; this is a full-table aggregate by design, but the SQL is now centralized and query-plan guarded against accidental heavier joins.
+  - No feature removal was attempted; no current safe-removal proof was found.
+  - Upstream HTTP client scan in this slice again found production caches or test-only clients, not a new per-request rebuild path.
+- Next continuation constraints:
+  - Goal remains active.
+  - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
+  - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
+  - Continue feature removal only with current call-site evidence plus tests proving it is safe.

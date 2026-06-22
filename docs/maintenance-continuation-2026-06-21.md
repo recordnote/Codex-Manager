@@ -5099,3 +5099,45 @@
   - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
   - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
   - Continue feature removal only with current call-site evidence plus tests proving it is safe.
+## 2026-06-22 tail marker - preferred account lookup index
+
+- Latest completed slice in this continuation:
+  - HTTP client reuse scan rechecked production candidate paths after the latest checkpoint:
+    - `gateway/model_picker/request.rs` already caches clients with `OnceLock<RwLock<...>>` and refreshes only when user-agent/proxy config changes.
+    - `http/proxy_runtime.rs` builds the front proxy backend client once into `ProxyState`, not once per proxied request.
+    - `web/src/main.rs` builds its service client once during web app startup.
+    - Warmup/auth/usage/plugin/updater client matches are already cached or startup/test-only paths.
+  - Found a real SQLite index gap: `preferred_account_id()` filtered `accounts.preferred = 1` and ordered by `updated_at DESC, id ASC`, but migration `045_accounts_preferred` only added the column and no matching lookup/order index.
+  - Files touched:
+    - `crates/core/migrations/110_accounts_preferred_lookup_index.sql`
+    - `crates/core/src/storage/mod.rs`
+    - `crates/core/src/storage/accounts.rs`
+  - Added migration:
+    - `idx_accounts_preferred_updated_at ON accounts(preferred, updated_at DESC, id ASC)`
+  - Registered previously present migration `109_model_source_platform_kind_order_index` before the new `110_accounts_preferred_lookup_index`, because the SQL file existed but was not wired into `Storage::init`.
+  - Added storage-local SQL helper:
+    - `preferred_account_id_sql()`
+  - Updated production method `preferred_account_id(...)` to use the helper without changing behavior.
+  - Expanded EXPLAIN coverage:
+    - `set_preferred_account_keeps_only_one_account_selected` now verifies preferred account lookup uses `idx_accounts_preferred_updated_at`.
+- Validation:
+  - `cargo test -p codexmanager-core set_preferred_account_keeps_only_one_account_selected -- --nocapture` passed:
+    - 1 matching core library test.
+  - `cargo test -p codexmanager-core init_tracks_schema_migrations_and_is_idempotent -- --nocapture` passed:
+    - 1 matching core library test.
+  - `cargo fmt` passed.
+  - `cargo fmt --check` passed.
+  - `cargo test -p codexmanager-core` passed:
+    - 338 core library tests.
+    - 7 auth integration tests.
+    - 29 storage integration tests.
+    - 1 usage integration test.
+    - 1 version integration test.
+    - doc-tests with 0 tests.
+- Notes:
+  - No feature removal was attempted; no current safe-removal proof was found.
+- Next continuation constraints:
+  - Goal remains active.
+  - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
+  - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
+  - Continue feature removal only with current call-site evidence plus tests proving it is safe.

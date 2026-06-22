@@ -1185,13 +1185,7 @@ impl Storage {
     /// # 返回
     /// 返回函数执行结果
     pub fn preferred_account_id(&self) -> Result<Option<String>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id
-             FROM accounts
-             WHERE preferred = 1
-             ORDER BY updated_at DESC, id ASC
-             LIMIT 1",
-        )?;
+        let mut stmt = self.conn.prepare(preferred_account_id_sql())?;
         let mut rows = stmt.query([])?;
         if let Some(row) = rows.next()? {
             Ok(Some(row.get(0)?))
@@ -1498,6 +1492,14 @@ fn account_upsert_state_by_id_sql() -> &'static str {
 
 fn account_exists_sql() -> &'static str {
     "SELECT EXISTS(SELECT 1 FROM accounts WHERE id = ?1)"
+}
+
+fn preferred_account_id_sql() -> &'static str {
+    "SELECT id
+     FROM accounts
+     WHERE preferred = 1
+     ORDER BY updated_at DESC, id ASC
+     LIMIT 1"
 }
 
 fn update_account_sort_sql() -> &'static str {
@@ -4759,6 +4761,15 @@ mod tests {
             .clear_preferred_account_if("acc-b")
             .expect("clear preferred"));
         assert_eq!(storage.preferred_account_id().expect("no preferred"), None);
+
+        let plan = collect_query_plan(
+            &storage,
+            &format!("EXPLAIN QUERY PLAN {}", preferred_account_id_sql()),
+        );
+        assert!(
+            plan.contains("idx_accounts_preferred_updated_at"),
+            "expected preferred account lookup to use preferred lookup index, got {plan}"
+        );
     }
     #[test]
     fn account_write_helpers_use_primary_key_indexes() {

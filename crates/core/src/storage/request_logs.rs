@@ -538,31 +538,7 @@ impl Storage {
         &self,
         filters: RequestLogSqlFilters,
     ) -> Result<RequestLogQuerySummary> {
-        let sql = format!(
-            "SELECT
-                COUNT(1),
-                IFNULL(SUM(CASE WHEN r.status_code >= 200 AND r.status_code <= 299 THEN 1 ELSE 0 END), 0),
-                IFNULL(SUM(CASE WHEN IFNULL(r.status_code, 0) >= 400 OR TRIM(IFNULL(r.error, '')) <> '' THEN 1 ELSE 0 END), 0),
-                IFNULL(SUM(
-                    CASE
-                        WHEN t.total_tokens IS NOT NULL THEN
-                            CASE WHEN t.total_tokens > 0 THEN t.total_tokens ELSE 0 END
-                        ELSE
-                            CASE
-                                WHEN IFNULL(t.input_tokens, 0) - IFNULL(t.cached_input_tokens, 0) + IFNULL(t.output_tokens, 0) > 0
-                                    THEN IFNULL(t.input_tokens, 0) - IFNULL(t.cached_input_tokens, 0) + IFNULL(t.output_tokens, 0)
-                                ELSE 0
-                            END
-                    END
-                ), 0),
-                IFNULL(SUM(IFNULL(t.estimated_cost_usd, 0.0)), 0.0)
-             FROM request_logs r
-             {account_join}
-             LEFT JOIN request_token_stats t ON t.request_log_id = r.id
-             {where_clause}",
-            account_join = account_join_clause(filters.uses_account_lookup),
-            where_clause = filters.where_clause
-        );
+        let sql = request_log_summary_sql(&filters);
         self.conn
             .query_row(&sql, params_from_iter(filters.params.iter()), |row| {
                 map_request_log_query_summary_row(row)
@@ -1040,6 +1016,34 @@ fn request_log_count_sql(filters: &RequestLogSqlFilters) -> String {
         account_join = account_join_clause(filters.uses_account_lookup),
         token_stats_join = token_stats_join_clause(filters.uses_token_stats),
         where_clause = filters.where_clause
+    )
+}
+
+fn request_log_summary_sql(filters: &RequestLogSqlFilters) -> String {
+    format!(
+        "SELECT
+            COUNT(1),
+            IFNULL(SUM(CASE WHEN r.status_code >= 200 AND r.status_code <= 299 THEN 1 ELSE 0 END), 0),
+            IFNULL(SUM(CASE WHEN IFNULL(r.status_code, 0) >= 400 OR TRIM(IFNULL(r.error, '')) <> '' THEN 1 ELSE 0 END), 0),
+            IFNULL(SUM(
+                CASE
+                    WHEN t.total_tokens IS NOT NULL THEN
+                        CASE WHEN t.total_tokens > 0 THEN t.total_tokens ELSE 0 END
+                    ELSE
+                        CASE
+                            WHEN IFNULL(t.input_tokens, 0) - IFNULL(t.cached_input_tokens, 0) + IFNULL(t.output_tokens, 0) > 0
+                                THEN IFNULL(t.input_tokens, 0) - IFNULL(t.cached_input_tokens, 0) + IFNULL(t.output_tokens, 0)
+                            ELSE 0
+                        END
+                END
+            ), 0),
+            IFNULL(SUM(IFNULL(t.estimated_cost_usd, 0.0)), 0.0)
+         FROM request_logs r
+         {account_join}
+         LEFT JOIN request_token_stats t ON t.request_log_id = r.id
+         {where_clause}",
+        account_join = account_join_clause(filters.uses_account_lookup),
+        where_clause = filters.where_clause,
     )
 }
 

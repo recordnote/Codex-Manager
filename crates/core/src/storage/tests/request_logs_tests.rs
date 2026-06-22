@@ -198,6 +198,42 @@ fn count_query_without_token_search_avoids_token_stats_join() {
 }
 
 #[test]
+fn request_log_summary_uses_status_index_and_skips_unused_account_join() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let filters = request_log_filters::build_request_log_filters(
+        None,
+        Some("2xx"),
+        Some(1000),
+        Some(2000),
+        storage.has_table("accounts").expect("check accounts table"),
+        None,
+        true,
+    );
+    assert!(!filters.uses_account_lookup);
+
+    let details = collect_query_plan_details_with_params(
+        &storage,
+        &format!(
+            "EXPLAIN QUERY PLAN {}",
+            super::request_log_summary_sql(&filters)
+        ),
+        filters.params.clone(),
+    );
+    assert!(query_plan_uses_index(
+        &details,
+        "idx_request_logs_status_code_created_at_id"
+    ));
+    assert!(details
+        .iter()
+        .any(|detail| detail.contains("request_token_stats")));
+    assert!(
+        !details.iter().any(|detail| detail.contains("accounts")),
+        "status-only request log summary should not join accounts, got {details:?}"
+    );
+}
+
+#[test]
 fn request_log_status_count_does_not_join_accounts_when_account_fields_are_unused() {
     let storage = Storage::open_in_memory().expect("open");
     storage.init().expect("init");

@@ -5592,3 +5592,36 @@
   - No feature removal was attempted; no current safe-removal proof was found.
   - Client reuse scan in this slice did not find a new production path repeatedly constructing stable upstream clients.
   - Goal remains active after this slice.
+
+## 2026-06-22 tail marker - request log summary SQL helper
+
+- Latest completed slice in this continuation:
+  - Continued request log storage scan after API key quota overview SQL helper slice.
+  - Confirmed `summarize_request_logs_filtered(...)` / keyed variants are used by request log summary service paths and still built the summary SQL inline.
+  - Files touched:
+    - `crates/core/src/storage/request_logs.rs`
+    - `crates/core/src/storage/tests/request_logs_tests.rs`
+  - Added storage-local SQL helper:
+    - `request_log_summary_sql(filters)`
+  - Updated production method `summarize_request_logs_with_filter(...)` to use the helper while preserving count, success/error count, token sum, and estimated-cost semantics.
+  - Added EXPLAIN coverage in `request_log_summary_uses_status_index_and_skips_unused_account_join` to verify status/time summaries use `idx_request_logs_status_code_created_at_id`, keep token stats aggregation, and avoid joining `accounts` when account fields are unused.
+- Validation:
+  - `cargo test -p codexmanager-core request_log_summary_uses_status_index_and_skips_unused_account_join -- --nocapture` passed:
+    - 1 matching core library test.
+  - `cargo test -p codexmanager-core request_logs_filtered_summary_aggregates_counts_and_tokens -- --nocapture` passed:
+    - 1 matching core library test.
+  - `cargo fmt --check` passed after `cargo fmt` normalized Rust formatting.
+  - `cargo test -p codexmanager-core request_logs -- --nocapture` passed:
+    - 28 matching core library tests.
+    - 2 matching storage integration tests.
+  - `cargo test -p codexmanager-core` passed:
+    - 340 core library tests.
+    - 7 auth integration tests.
+    - 29 storage integration tests.
+    - 1 usage integration test.
+    - 1 version integration test.
+    - doc-tests with 0 tests.
+- Notes:
+  - No SQLite migration or new index was added; the existing status/time composite index is now guarded for summary queries as well as count queries.
+  - No feature removal was attempted; no current safe-removal proof was found.
+  - Goal remains active after this slice.

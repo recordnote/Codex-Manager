@@ -6055,3 +6055,22 @@
   - Client scan rechecked usage/auth/warmup/model-picker paths; they already use cached clients or stable runtime-scoped clients, so no additional client reuse edit was made in this slice.
   - No feature removal was attempted in this slice.
   - Goal remains active after this slice.
+## 2026-06-22 continuation - model options storage tests module split
+
+- Latest completed slice in this continuation:
+  - Continued the core storage modularity scan after splitting plugin storage tests.
+  - Reconfirmed `crates/core/src/storage/model_options.rs` as a large model catalog storage module and found its EOF `#[cfg(test)] mod tests` block was pure test code.
+  - Files touched:
+    - `crates/core/src/storage/model_options.rs`
+    - `crates/core/src/storage/model_options_tests.rs`
+  - Moved the inline model catalog/query-plan tests into `model_options_tests.rs` and left the parent module with `#[path = "model_options_tests.rs"] mod tests;`.
+  - No model catalog production logic or SQL text was changed; tests remain a child module and still access private helpers through `super`.
+- Validation passed so far:
+  - `cargo fmt` passed after the split.
+  - `cargo test -p codexmanager-core model_options -- --nocapture` passed: 16 matching core library tests.
+  - `cargo fmt --check` passed.
+  - `git diff --check` passed with only LF-to-CRLF warnings and exit code 0.
+- Notes:
+  - No SQLite migration or new index was added; existing model catalog query-plan assertions were preserved unchanged in the moved test file.
+  - No feature removal was attempted in this slice.
+  - Goal remains active after this slice.

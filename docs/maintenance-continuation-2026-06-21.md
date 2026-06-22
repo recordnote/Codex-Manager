@@ -5940,3 +5940,20 @@
   - No SQLite migration or new index was added in this service-layer test-module split.
   - No feature removal was attempted; this was a maintainability cleanup.
   - Goal remains active after this slice.
+## 2026-06-22 continuation - protocol request router tests module split
+
+- Latest completed slice in this continuation:
+  - Continued service-layer modularity after splitting aggregate API tests.
+  - Re-scanned `crates/service/src/gateway/protocol_adapter/request_router.rs`, which had an EOF inline `#[cfg(test)] mod tests` block covering Anthropic/Gemini/OpenAI response adapter behavior.
+  - Files touched:
+    - `crates/service/src/gateway/protocol_adapter/request_router.rs`
+    - `crates/service/src/gateway/protocol_adapter/request_router_tests.rs`
+  - Moved the inline tests into `request_router_tests.rs` and left the parent module with `#[path = "request_router_tests.rs"] mod tests;`.
+  - No protocol adapter production logic was changed; tests remain a child module and still access the same private helpers through `super`.
+- Validation passed so far:
+  - `cargo fmt --check` passed after manual formatting. A direct `cargo fmt` write attempt hit Windows `os error 5` on `request_router.rs`, but the resulting source now matches rustfmt's checked output.
+  - `cargo test -p codexmanager-service request_router -- --nocapture` passed: 26 matching service library tests.
+- Notes:
+  - No SQLite migration or new index was added in this service-layer test-module split.
+  - No feature removal was attempted; this was a maintainability cleanup.
+  - Goal remains active after this slice.

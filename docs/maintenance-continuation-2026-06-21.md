@@ -5175,3 +5175,36 @@
   - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
   - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
   - Continue feature removal only with current call-site evidence plus tests proving it is safe.
+## 2026-06-22 tail marker - default model group lookup SQL helper alignment
+
+- Latest completed slice in this continuation:
+  - Continued ORDER BY/LIMIT storage scan after the account status slice.
+  - Usage snapshot latest/read/prune paths already had SQL helpers and EXPLAIN coverage for `idx_usage_snapshots_captured_id` / `idx_usage_snapshots_account_captured_id`, so no change was made there.
+  - File touched: `crates/core/src/storage/model_groups.rs`.
+  - Added storage-local SQL helper:
+    - `default_model_group_id_sql()`
+  - Updated production method `default_model_group_id(...)` to use the helper without changing behavior.
+  - Expanded EXPLAIN coverage:
+    - `list_model_groups_uses_list_order_index` now also verifies default model group lookup uses `idx_model_groups_default`.
+- Validation:
+  - `cargo test -p codexmanager-core list_model_groups_uses_list_order_index -- --nocapture` passed:
+    - 1 matching core library test.
+  - `cargo fmt` passed.
+  - `cargo fmt --check` passed.
+  - `cargo test -p codexmanager-core model_groups -- --nocapture` passed:
+    - 10 matching core library tests.
+  - `cargo test -p codexmanager-core` passed:
+    - 338 core library tests.
+    - 7 auth integration tests.
+    - 29 storage integration tests.
+    - 1 usage integration test.
+    - 1 version integration test.
+    - doc-tests with 0 tests.
+- Notes:
+  - No SQLite migration or new index was added; this path already had the partial unique `idx_model_groups_default` index.
+  - No feature removal was attempted; no current safe-removal proof was found.
+- Next continuation constraints:
+  - Goal remains active.
+  - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
+  - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
+  - Continue feature removal only with current call-site evidence plus tests proving it is safe.

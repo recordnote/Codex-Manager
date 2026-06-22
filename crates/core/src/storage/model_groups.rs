@@ -92,6 +92,10 @@ fn clear_other_default_model_groups_sql() -> &'static str {
     "UPDATE model_groups SET is_default = 0 WHERE id <> ?1"
 }
 
+fn default_model_group_id_sql() -> &'static str {
+    "SELECT id FROM model_groups WHERE is_default = 1 LIMIT 1"
+}
+
 fn delete_non_default_model_group_by_id_sql() -> &'static str {
     "DELETE FROM model_groups WHERE id = ?1 AND is_default = 0"
 }
@@ -263,11 +267,7 @@ impl Storage {
 
     pub fn default_model_group_id(&self) -> Result<Option<String>> {
         self.conn
-            .query_row(
-                "SELECT id FROM model_groups WHERE is_default = 1 LIMIT 1",
-                [],
-                |row| row.get(0),
-            )
+            .query_row(default_model_group_id_sql(), [], |row| row.get(0))
             .optional()
     }
 
@@ -727,10 +727,18 @@ mod tests {
             &storage,
             &format!("EXPLAIN QUERY PLAN {}", model_group_list_sql()),
         );
+        let default_plan = collect_query_plan(
+            &storage,
+            &format!("EXPLAIN QUERY PLAN {}", default_model_group_id_sql()),
+        );
 
         assert!(
             plan.contains("idx_model_groups_list_order"),
             "expected model group list-order index in plan, got {plan}"
+        );
+        assert!(
+            default_plan.contains("idx_model_groups_default"),
+            "expected default model group lookup to use default-group index, got {default_plan}"
         );
         assert!(
             !plan.contains("USE TEMP B-TREE FOR ORDER BY"),

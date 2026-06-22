@@ -5775,3 +5775,25 @@
   - No SQLite migration or new index was added; source expressions are computed and the time-range indexes remain the useful plan anchors.
   - No feature removal was attempted; no current safe-removal proof was found.
   - Goal remains active after this slice.
+
+## 2026-06-22 continuation - usage latest snapshot SQL helper
+
+- Latest completed slice in this continuation:
+  - Continued the SQLite/core maintainability track after the request-token summary helper commits.
+  - Found `latest_usage_snapshots_by_account_limited(...)` still assembled its ranked latest-snapshot query inline while sibling usage read paths already used storage-local SQL helpers.
+  - File touched: `crates/core/src/storage/usage.rs`.
+  - Added storage-local SQL helper:
+    - `latest_usage_snapshots_by_account_sql(limit)`
+  - Updated the production latest-usage snapshot read path to use the helper while preserving the `limit == Some(0)` fast return, optional SQL `LIMIT ?`, parameter binding, row mapping, and final ordering semantics.
+  - Expanded EXPLAIN coverage in `latest_usage_snapshot_lookup_helpers_use_existing_indexes` to verify the helper-backed query still uses `idx_usage_snapshots_account_captured_id`.
+- Validation passed for this slice:
+  - `cargo test -p codexmanager-core latest_usage_snapshot_lookup_helpers_use_existing_indexes -- --nocapture` passed: 1 matching core library test.
+  - `cargo test -p codexmanager-core usage -- --nocapture` passed: 45 matching core library tests, 4 matching storage integration tests, and 1 matching usage integration test.
+  - `cargo fmt` was run after `cargo fmt --check` reported a formatting-only line wrap.
+  - `cargo fmt --check` passed.
+  - `git diff --check` passed; Git only reported LF-to-CRLF working-copy conversion warnings.
+  - `cargo test -p codexmanager-core` passed with 348 core library tests, 7 auth integration tests, 29 storage integration tests, 1 usage integration test, 1 version integration test, and 0 doc-tests.
+- Notes:
+  - No SQLite migration or new index was added; the existing latest-usage indexes are still the intended plan anchors.
+  - No feature removal was attempted; no current safe-removal proof was found.
+  - Goal remains active after this slice.

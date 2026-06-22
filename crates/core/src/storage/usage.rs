@@ -253,41 +253,8 @@ impl Storage {
         if limit == Some(0) {
             return Ok(Vec::new());
         }
-        // 中文注释：窗口函数 + 复合索引可稳定处理“同 captured_at 并发写入”场景；
-        // 不这样做会依赖复杂子查询拼接，后续维护和优化都更难。
-        let mut sql = format!(
-            "{cte}
-            SELECT
-                account_id,
-                used_percent,
-                window_minutes,
-                resets_at,
-                secondary_used_percent,
-                secondary_window_minutes,
-                secondary_resets_at,
-                credits_json,
-                captured_at
-            FROM ranked
-            WHERE rn = 1
-            ORDER BY captured_at DESC, id DESC",
-            cte = latest_usage_ranked_cte_sql(
-                "account_id,
-                    used_percent,
-                    window_minutes,
-                    resets_at,
-                    secondary_used_percent,
-                    secondary_window_minutes,
-                    secondary_resets_at,
-                    credits_json,
-                    captured_at",
-                None,
-            ),
-        );
-        let mut params = Vec::new();
-        if let Some(limit) = limit {
-            sql.push_str(" LIMIT ?");
-            params.push(limit as i64);
-        }
+        let sql = latest_usage_snapshots_by_account_sql(limit);
+        let params = limit.map(|limit| vec![limit as i64]).unwrap_or_default();
         let mut stmt = self.conn.prepare(&sql)?;
         let mut rows = stmt.query(params_from_iter(params))?;
         let mut out = Vec::new();
@@ -482,6 +449,40 @@ fn map_usage_cleanup_row(row: &Row<'_>) -> Result<UsageSnapshotCleanupRow> {
     })
 }
 
+fn latest_usage_snapshots_by_account_sql(limit: Option<usize>) -> String {
+    let mut sql = format!(
+        "{cte}
+        SELECT
+            account_id,
+            used_percent,
+            window_minutes,
+            resets_at,
+            secondary_used_percent,
+            secondary_window_minutes,
+            secondary_resets_at,
+            credits_json,
+            captured_at
+        FROM ranked
+        WHERE rn = 1
+        ORDER BY captured_at DESC, id DESC",
+        cte = latest_usage_ranked_cte_sql(
+            "account_id,
+                used_percent,
+                window_minutes,
+                resets_at,
+                secondary_used_percent,
+                secondary_window_minutes,
+                secondary_resets_at,
+                credits_json,
+                captured_at",
+            None,
+        ),
+    );
+    if limit.is_some() {
+        sql.push_str(" LIMIT ?");
+    }
+    sql
+}
 fn latest_usage_ranked_cte_sql(select_columns: &str, where_condition: Option<&str>) -> String {
     let where_clause = where_condition
         .map(|condition| format!("WHERE {condition}"))
@@ -1123,6 +1124,12 @@ mod tests {
         let summary_sql = latest_usage_snapshot_summary_rows_sql();
         let summary_plan =
             collect_query_plan(&storage, &format!("EXPLAIN QUERY PLAN {summary_sql}"));
+        let by_account_sql = latest_usage_snapshots_by_account_sql(Some(10));
+        let by_account_plan = collect_query_plan_with_params(
+            &storage,
+            &format!("EXPLAIN QUERY PLAN {by_account_sql}"),
+            vec![rusqlite::types::Value::Integer(10)],
+        );
 
         assert!(
             latest_plan.contains("idx_usage_snapshots_captured_id"),
@@ -1139,6 +1146,10 @@ mod tests {
         assert!(
             summary_plan.contains("idx_usage_snapshots_account_captured_id"),
             "summary usage query should use account captured lookup index, got {summary_plan}"
+        );
+        assert!(
+            by_account_plan.contains("idx_usage_snapshots_account_captured_id"),
+            "latest usage snapshots by account should use account captured lookup index, got {by_account_plan}"
         );
 
         for (label, plan) in [

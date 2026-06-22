@@ -700,6 +700,47 @@ fn daily_range_query_matches_created_at_index() {
 }
 
 #[test]
+fn source_rollup_query_includes_raw_and_hourly_sources() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let source_id_expr = super::source_id_expr("openai_account").expect("source expr");
+    let hourly_source_id_expr =
+        super::hourly_source_id_expr("openai_account").expect("hourly source expr");
+    let raw = super::raw_token_rollup_select(
+        &format!("'openai_account' AS source_kind, {source_id_expr} AS source_id,"),
+        &format!("t.created_at >= ?1 AND t.created_at < ?2 AND {source_id_expr} IS NOT NULL"),
+        "GROUP BY source_kind, source_id",
+        false,
+    );
+    let hourly = super::hourly_token_rollup_select(
+        &format!("'openai_account' AS source_kind, {hourly_source_id_expr} AS source_id,"),
+        &format!(
+            "{} AND {hourly_source_id_expr} IS NOT NULL",
+            super::hourly_rollup_range_clause()
+        ),
+        "GROUP BY source_kind, source_id",
+    );
+    let union_sql = super::union_all_selects([raw, hourly]);
+    let sql = super::request_token_stats_by_source_rollup_sql(&union_sql, Some(3));
+
+    let details = collect_query_plan_details_with_params(
+        &storage,
+        &format!("EXPLAIN QUERY PLAN {sql}"),
+        vec![Value::Integer(0), Value::Integer(604800)],
+    );
+
+    assert_uses_index(
+        &details,
+        "idx_request_token_stats_created_at",
+        "source raw rollup",
+    );
+    assert_uses_index(
+        &details,
+        "idx_request_token_stat_hourly_rollups_bucket_start",
+        "source hourly rollup",
+    );
+}
+#[test]
 fn by_user_rollup_query_includes_raw_and_hourly_sources() {
     let storage = Storage::open_in_memory().expect("open");
     storage.init().expect("init");

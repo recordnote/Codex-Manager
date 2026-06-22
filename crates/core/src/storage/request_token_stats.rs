@@ -409,6 +409,58 @@ fn request_token_stats_by_model_sql(combined_selects: &str, limit_clause: &str) 
     )
 }
 
+fn request_token_stats_by_source_rollup_sql(
+    union_sql: &str,
+    limit_per_source_kind: Option<usize>,
+) -> String {
+    if let Some(limit) = limit_per_source_kind {
+        format!(
+            "WITH combined AS (
+                {union_sql}
+             ),
+             ranked AS (
+                SELECT
+                    source_kind,
+                    source_id,
+                    {COMBINED_ROLLUP_COLUMNS},
+                    ROW_NUMBER() OVER (
+                        PARTITION BY source_kind
+                        ORDER BY SUM(IFNULL(total_tokens, 0)) DESC, source_id ASC
+                    ) AS source_rank
+                FROM combined
+                GROUP BY source_kind, source_id
+             )
+             SELECT
+                source_kind,
+                source_id,
+                input_tokens,
+                cached_input_tokens,
+                output_tokens,
+                reasoning_output_tokens,
+                total_tokens,
+                estimated_cost_usd,
+                request_count,
+                success_count,
+                error_count
+             FROM ranked
+             WHERE source_rank <= {limit}
+             ORDER BY source_kind ASC, total_tokens DESC, source_id ASC"
+        )
+    } else {
+        format!(
+            "WITH combined AS (
+                {union_sql}
+             )
+             SELECT
+                source_kind,
+                source_id,
+                {COMBINED_ROLLUP_COLUMNS}
+             FROM combined
+             GROUP BY source_kind, source_id
+             ORDER BY source_kind ASC, total_tokens DESC, source_id ASC"
+        )
+    }
+}
 fn request_token_stats_by_key_and_model_sql(combined_selects: &str) -> String {
     format!(
         "WITH combined AS (
@@ -1410,53 +1462,8 @@ impl Storage {
             return Ok(Vec::new());
         }
         let union_sql = selects.join("\nUNION ALL\n");
-        let sql = if let Some(limit) = limit_per_source_kind {
-            format!(
-                "WITH combined AS (
-                    {union_sql}
-                 ),
-                 ranked AS (
-                    SELECT
-                        source_kind,
-                        source_id,
-                        {COMBINED_ROLLUP_COLUMNS},
-                        ROW_NUMBER() OVER (
-                            PARTITION BY source_kind
-                            ORDER BY SUM(IFNULL(total_tokens, 0)) DESC, source_id ASC
-                        ) AS source_rank
-                    FROM combined
-                    GROUP BY source_kind, source_id
-                 )
-                 SELECT
-                    source_kind,
-                    source_id,
-                    input_tokens,
-                    cached_input_tokens,
-                    output_tokens,
-                    reasoning_output_tokens,
-                    total_tokens,
-                    estimated_cost_usd,
-                    request_count,
-                    success_count,
-                    error_count
-                 FROM ranked
-                 WHERE source_rank <= {limit}
-                 ORDER BY source_kind ASC, total_tokens DESC, source_id ASC"
-            )
-        } else {
-            format!(
-                "WITH combined AS (
-                    {union_sql}
-                 )
-                 SELECT
-                    source_kind,
-                    source_id,
-                    {COMBINED_ROLLUP_COLUMNS}
-                 FROM combined
-                 GROUP BY source_kind, source_id
-                 ORDER BY source_kind ASC, total_tokens DESC, source_id ASC"
-            )
-        };
+        let sql = request_token_stats_by_source_rollup_sql(&union_sql, limit_per_source_kind);
+
         let mut stmt = self.conn.prepare(&sql)?;
         let mut rows = stmt.query(params![start_ts, end_ts])?;
         let mut items = Vec::new();

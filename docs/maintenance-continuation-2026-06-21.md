@@ -5756,3 +5756,22 @@
   - No SQLite migration or new index was added; the all-user hourly query has no owner equality predicate, so the bucket range index is the expected plan.
   - No feature removal was attempted; no current safe-removal proof was found.
   - Goal remains active after this slice.
+## 2026-06-22 continuation - request token source rollup SQL helper
+
+- Latest completed slice in this continuation:
+  - Continued the SQLite/core maintainability track in `crates/core/src/storage/request_token_stats.rs` after the by-user rollup helper commit.
+  - Found remaining inline source rollup wrappers in `summarize_request_token_stats_by_sources_between_limited(...)`, including both ranked/limited and unranked branches.
+  - Added storage-local SQL helper:
+    - `request_token_stats_by_source_rollup_sql(union_sql, limit_per_source_kind)`
+  - Updated the production source rollup path to use the helper while keeping source-kind normalization, source id expressions, raw/hourly branch construction, and unsupported-source filtering at the call site.
+  - Added EXPLAIN coverage in `source_rollup_query_includes_raw_and_hourly_sources` using the limited/ranked branch to verify the helper-backed query still reads raw token stats via `idx_request_token_stats_created_at` and hourly rollups via `idx_request_token_stat_hourly_rollups_bucket_start`.
+- Validation passed for this slice:
+  - `cargo test -p codexmanager-core source_rollup_query_includes_raw_and_hourly_sources -- --nocapture` passed: 1 matching core library test.
+  - `cargo test -p codexmanager-core request_token_stats -- --nocapture` passed: 27 matching core library tests and 2 matching storage integration tests.
+  - `cargo fmt --check` passed.
+  - `git diff --check` passed; Git only reported LF-to-CRLF working-copy conversion warnings.
+  - `cargo test -p codexmanager-core` passed with 348 core library tests, 7 auth integration tests, 29 storage integration tests, 1 usage integration test, 1 version integration test, and 0 doc-tests.
+- Notes:
+  - No SQLite migration or new index was added; source expressions are computed and the time-range indexes remain the useful plan anchors.
+  - No feature removal was attempted; no current safe-removal proof was found.
+  - Goal remains active after this slice.

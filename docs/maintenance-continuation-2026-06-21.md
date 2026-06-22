@@ -4993,3 +4993,40 @@
   - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
   - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
   - Continue feature removal only with current call-site evidence plus tests proving it is safe.
+## 2026-06-22 tail marker - account identity/upsert read SQL helper alignment
+
+- Latest completed slice in this continuation:
+  - File touched: `crates/core/src/storage/accounts.rs`.
+  - Added storage-local SQL helpers for account primary-key read paths:
+    - `account_workspace_identity_by_id_sql()`
+    - `account_upsert_state_by_id_sql()`
+  - Updated production methods to use those helpers without changing behavior:
+    - `find_account_workspace_identity_by_id(...)`
+    - `find_account_upsert_state_by_id(...)`
+  - Expanded EXPLAIN coverage:
+    - `find_account_workspace_identity_by_id_reads_scope_fields_only` now verifies the helper uses `sqlite_autoindex_accounts_1`.
+    - `find_account_upsert_state_by_id_reads_upsert_fields_only` now verifies the helper uses `sqlite_autoindex_accounts_1`.
+- Validation:
+  - `cargo test -p codexmanager-core find_account_ -- --nocapture` passed:
+    - 7 matching core library tests.
+  - `cargo test -p codexmanager-core accounts -- --nocapture` passed:
+    - 73 matching core library tests.
+    - 2 matching storage integration tests.
+  - `cargo fmt` passed.
+  - `cargo fmt --check` passed.
+  - `cargo test -p codexmanager-core` passed:
+    - 337 core library tests.
+    - 7 auth integration tests.
+    - 29 storage integration tests.
+    - 1 usage integration test.
+    - 1 version integration test.
+    - doc-tests with 0 tests.
+  - `git diff --check` passed with only LF-to-CRLF warnings.
+- Notes:
+  - No SQLite migration or new index was added; inspected account read paths use the existing primary-key index.
+  - No feature removal was attempted; no current safe-removal proof was found.
+- Next continuation constraints:
+  - Goal remains active.
+  - Continue SQLite work only when production SQL/helper/EXPLAIN alignment or a real query-plan issue is visible.
+  - Continue client reuse only if a production/request/frequent background path repeatedly constructs a stable-config client.
+  - Continue feature removal only with current call-site evidence plus tests proving it is safe.

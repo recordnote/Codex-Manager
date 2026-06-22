@@ -864,12 +864,7 @@ impl Storage {
         &self,
         account_id: &str,
     ) -> Result<Option<AccountWorkspaceIdentity>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, chatgpt_account_id, workspace_id
-             FROM accounts
-             WHERE id = ?1
-             LIMIT 1",
-        )?;
+        let mut stmt = self.conn.prepare(account_workspace_identity_by_id_sql())?;
         let mut rows = stmt.query([account_id])?;
         if let Some(row) = rows.next()? {
             Ok(Some(AccountWorkspaceIdentity {
@@ -886,12 +881,7 @@ impl Storage {
         &self,
         account_id: &str,
     ) -> Result<Option<AccountUpsertState>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT group_name, sort, created_at
-             FROM accounts
-             WHERE id = ?1
-             LIMIT 1",
-        )?;
+        let mut stmt = self.conn.prepare(account_upsert_state_by_id_sql())?;
         let mut rows = stmt.query([account_id])?;
         if let Some(row) = rows.next()? {
             Ok(Some(AccountUpsertState {
@@ -1476,6 +1466,20 @@ fn build_account_where_clause(
 /// 返回函数执行结果
 fn qualified_column(table_name: &str, column: &str) -> String {
     format!("{table_name}.{column}")
+}
+
+fn account_workspace_identity_by_id_sql() -> &'static str {
+    "SELECT id, chatgpt_account_id, workspace_id
+     FROM accounts
+     WHERE id = ?1
+     LIMIT 1"
+}
+
+fn account_upsert_state_by_id_sql() -> &'static str {
+    "SELECT group_name, sort, created_at
+     FROM accounts
+     WHERE id = ?1
+     LIMIT 1"
 }
 
 fn account_exists_sql() -> &'static str {
@@ -2666,6 +2670,19 @@ mod tests {
             .find_account_workspace_identity_by_id("acc-workspace-missing")
             .expect("find missing workspace identity")
             .is_none());
+
+        let plan = collect_query_plan_with_params(
+            &storage,
+            &format!(
+                "EXPLAIN QUERY PLAN {}",
+                account_workspace_identity_by_id_sql()
+            ),
+            rusqlite::params!["acc-workspace-helper"],
+        );
+        assert!(
+            plan.contains("sqlite_autoindex_accounts_1"),
+            "expected workspace identity lookup to use account primary-key index, got {plan}"
+        );
     }
 
     #[test]
@@ -2696,6 +2713,16 @@ mod tests {
             .find_account_upsert_state_by_id("acc-upsert-missing")
             .expect("find missing upsert state")
             .is_none());
+
+        let plan = collect_query_plan_with_params(
+            &storage,
+            &format!("EXPLAIN QUERY PLAN {}", account_upsert_state_by_id_sql()),
+            rusqlite::params!["acc-upsert-state"],
+        );
+        assert!(
+            plan.contains("sqlite_autoindex_accounts_1"),
+            "expected upsert state lookup to use account primary-key index, got {plan}"
+        );
     }
 
     #[test]

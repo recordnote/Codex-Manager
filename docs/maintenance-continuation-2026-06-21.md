@@ -6340,3 +6340,35 @@
   - The batch reduced non-test production files with inline test modules from 66 to 6.
   - No feature removal was attempted in this slice; feature removal remains high-risk unless call-chain evidence proves a function or route is unused.
   - Goal remains active after this slice.
+## 2026-06-23 continuation - remaining inline tests module split
+
+- Latest completed slice in this continuation:
+  - Finished the remaining 6 non-mechanical inline test modules that were not covered by the previous EOF-only batch.
+  - Files split:
+    - `crates/web/src/ui_assets.rs` -> `crates/web/src/ui_assets_tests.rs` while preserving `#[cfg(all(test, feature = "embedded-ui"))]`.
+    - `crates/service/src/account/account_warmup.rs` -> `crates/service/src/account/account_warmup_tests.rs`.
+    - `crates/service/src/plugin/catalog.rs` -> `crates/service/src/plugin/catalog_tests.rs`.
+    - `crates/service/src/gateway/observability/http_bridge/aggregate/sse_frame.rs` -> `crates/service/src/gateway/observability/http_bridge/aggregate/sse_frame_tests.rs`.
+    - `crates/service/src/gateway/observability/http_bridge/stream_readers/anthropic.rs` -> `crates/service/src/gateway/observability/http_bridge/stream_readers/anthropic_tests.rs`.
+    - `crates/service/src/gateway/observability/http_bridge/stream_readers/gemini.rs` -> `crates/service/src/gateway/observability/http_bridge/stream_readers/gemini_tests.rs`.
+  - These included mid-file test modules, so the parent modules were updated in place with `#[path = ...] mod tests;` without moving the production code that follows the tests.
+  - No production logic, SQL text, SQLite migration, index, request routing behavior, or upstream client behavior was intentionally changed in this slice.
+- Validation passed for this slice:
+  - `cargo fmt --check` passed.
+  - `cargo test -p codexmanager-service --lib --no-run` passed.
+  - `cargo test -p codexmanager-web --no-run` passed.
+  - `cargo test -p codexmanager-service account::warmup -- --nocapture` passed: 9 matching tests.
+  - `cargo test -p codexmanager-service plugin::catalog -- --nocapture` passed: 5 matching tests.
+  - `cargo test -p codexmanager-service sse_frame -- --nocapture` passed: 17 matching tests.
+  - `cargo test -p codexmanager-service anthropic -- --nocapture` passed: 38 service tests plus 7 gateway log integration tests.
+  - `cargo test -p codexmanager-service gemini -- --nocapture` passed: 53 matching tests.
+  - `cargo test -p codexmanager-web ui_assets -- --nocapture` passed: 5 matching tests.
+- Current structural state:
+  - `rg "^\s*mod tests \{" crates/core/src crates/service/src crates/web/src --glob '!**/*_tests.rs' --glob '!**/tests/**'` now returns no matches.
+- Time estimate from current evidence:
+  - Inline test modularity sweep is done for non-test production files in `crates/core`, `crates/service`, and `crates/web`.
+  - Remaining recommended scope is the final upstream `reqwest::Client` construction audit, final SQLite high-frequency path audit, final validation, and closeout report.
+  - Estimated remaining time: about 4-8 hours for the recommended evidence-backed scope. A stricter full-repo polish beyond that can still expand by 1-2 days with lower return.
+- Notes:
+  - No feature removal was attempted in this slice.
+  - Goal remains active after this slice.

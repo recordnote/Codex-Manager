@@ -30,6 +30,7 @@ pub(crate) struct AccountImportResult {
     updated: usize,
     failed: usize,
     errors: Vec<AccountImportError>,
+    imported_account_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -388,6 +389,7 @@ pub(crate) fn import_account_auth_json(
         updated: 0,
         failed: 0,
         errors: Vec::new(),
+        imported_account_ids: Vec::new(),
     };
     let mut progress = AccountImportProgress::new();
     let batch_size = import_batch_size();
@@ -472,6 +474,15 @@ fn import_items_in_batches(
                         result.created += 1;
                     } else {
                         result.updated += 1;
+                    }
+                    if !result
+                        .imported_account_ids
+                        .iter()
+                        .any(|id| id == &imported.account_id)
+                    {
+                        result
+                            .imported_account_ids
+                            .push(imported.account_id.clone());
                     }
                     progress.on_item_success(imported.created);
                     let _ = crate::usage_refresh::enqueue_usage_refresh_after_account_add(
@@ -893,25 +904,6 @@ fn import_single_item_with_account_id(
             (account_id.clone(), created, true)
         };
 
-    storage
-        .insert_account(&account)
-        .map_err(|e| e.to_string())?;
-    let existing_metadata = storage
-        .find_account_metadata(&account_id)
-        .map_err(|e| e.to_string())?;
-    let merged_note = note.or_else(|| {
-        existing_metadata
-            .as_ref()
-            .and_then(|value| value.note.clone())
-    });
-    let merged_tags = tags.or_else(|| {
-        existing_metadata
-            .as_ref()
-            .and_then(|value| value.tags.clone())
-    });
-    storage
-        .upsert_account_metadata(&account_id, merged_note.as_deref(), merged_tags.as_deref())
-        .map_err(|e| e.to_string())?;
     let token = Token {
         account_id: account_id.clone(),
         id_token: payload.id_token,
@@ -920,7 +912,9 @@ fn import_single_item_with_account_id(
         api_key_access_token: None,
         last_refresh: now,
     };
-    storage.insert_token(&token).map_err(|e| e.to_string())?;
+    storage
+        .upsert_imported_account_bundle(&account, note.as_deref(), tags.as_deref(), &token)
+        .map_err(|e| e.to_string())?;
     index.upsert_index(&account);
     let account_snapshot = account_import_snapshot_from_account(&account);
     let token_subject = AccountImportTokenSubject {

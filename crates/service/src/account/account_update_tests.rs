@@ -1,4 +1,4 @@
-use super::update_account;
+use super::{update_account, update_account_sorts, AccountSortUpdate};
 use codexmanager_core::storage::{Account, Storage};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -51,12 +51,17 @@ fn account(id: &str, sort: i64) -> Account {
     }
 }
 
+fn set_test_db(prefix: &str) -> (PathBuf, EnvGuard) {
+    let dir = new_test_dir(prefix);
+    let db_path = dir.join("codexmanager.db");
+    let guard = EnvGuard::set("CODEXMANAGER_DB_PATH", db_path.to_string_lossy().as_ref());
+    (db_path, guard)
+}
+
 #[test]
 fn update_account_preferred_uses_existence_check_without_loading_account() {
     let _lock = crate::test_env_guard();
-    let dir = new_test_dir("account-update-preferred");
-    let db_path = dir.join("codexmanager.db");
-    let _guard = EnvGuard::set("CODEXMANAGER_DB_PATH", db_path.to_string_lossy().as_ref());
+    let (db_path, _guard) = set_test_db("account-update-preferred");
 
     let storage = Storage::open(&db_path).expect("open db");
     storage.init().expect("init db");
@@ -100,4 +105,109 @@ fn update_account_preferred_uses_existence_check_without_loading_account() {
     )
     .expect_err("missing account should fail");
     assert_eq!(err, "account not found");
+}
+
+#[test]
+fn update_account_sorts_updates_all_rows_and_records_events() {
+    let _lock = crate::test_env_guard();
+    let (db_path, _guard) = set_test_db("account-update-sorts");
+
+    let storage = Storage::open(&db_path).expect("open db");
+    storage.init().expect("init db");
+    storage
+        .insert_account(&account("acc-sort-a", 1))
+        .expect("insert first account");
+    storage
+        .insert_account(&account("acc-sort-b", 2))
+        .expect("insert second account");
+
+    let result = update_account_sorts(vec![
+        AccountSortUpdate {
+            account_id: "acc-sort-a".to_string(),
+            sort: 20,
+        },
+        AccountSortUpdate {
+            account_id: "acc-sort-b".to_string(),
+            sort: 10,
+        },
+    ])
+    .expect("update account sorts");
+
+    assert_eq!(result.updated, 2);
+    let storage = Storage::open(&db_path).expect("reopen db");
+    assert_eq!(
+        storage
+            .find_account_by_id("acc-sort-a")
+            .expect("find first")
+            .expect("first exists")
+            .sort,
+        20
+    );
+    assert_eq!(
+        storage
+            .find_account_by_id("acc-sort-b")
+            .expect("find second")
+            .expect("second exists")
+            .sort,
+        10
+    );
+    assert_eq!(storage.event_count().expect("event count"), 2);
+}
+
+#[test]
+fn update_account_sorts_rejects_empty_and_duplicate_ids() {
+    let _lock = crate::test_env_guard();
+    let (_db_path, _guard) = set_test_db("account-update-sorts-invalid");
+
+    let empty_err = update_account_sorts(Vec::new()).expect_err("empty updates fail");
+    assert_eq!(empty_err, "missing account sort updates");
+
+    let duplicate_err = update_account_sorts(vec![
+        AccountSortUpdate {
+            account_id: "acc-dup".to_string(),
+            sort: 1,
+        },
+        AccountSortUpdate {
+            account_id: " acc-dup ".to_string(),
+            sort: 2,
+        },
+    ])
+    .expect_err("duplicate updates fail");
+    assert_eq!(duplicate_err, "duplicate accountId: acc-dup");
+}
+
+#[test]
+fn update_account_sorts_rolls_back_when_any_account_is_missing() {
+    let _lock = crate::test_env_guard();
+    let (db_path, _guard) = set_test_db("account-update-sorts-rollback");
+
+    let storage = Storage::open(&db_path).expect("open db");
+    storage.init().expect("init db");
+    storage
+        .insert_account(&account("acc-sort-rollback", 1))
+        .expect("insert account");
+
+    let err = update_account_sorts(vec![
+        AccountSortUpdate {
+            account_id: "acc-sort-rollback".to_string(),
+            sort: 99,
+        },
+        AccountSortUpdate {
+            account_id: "acc-sort-missing".to_string(),
+            sort: 100,
+        },
+    ])
+    .expect_err("missing account fails batch");
+    assert!(err.contains("account not found: acc-sort-missing"));
+
+    let storage = Storage::open(&db_path).expect("reopen db");
+    assert_eq!(
+        storage
+            .find_account_by_id("acc-sort-rollback")
+            .expect("find account")
+            .expect("account exists")
+            .sort,
+        1
+    );
+    assert_eq!(storage.event_count().expect("event count"), 0);
 }

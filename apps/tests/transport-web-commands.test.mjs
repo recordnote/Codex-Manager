@@ -110,6 +110,12 @@ test("createWebCommandMap 为账号预热命令提供 Web RPC 映射", () => {
   });
 });
 
+test("createWebCommandMap 为批量账号排序提供 Web RPC 映射", () => {
+  assert.deepEqual(commandMap.service_account_update_sorts, {
+    rpcMethod: "account/updateSorts",
+  });
+});
+
 test("createWebCommandMap 为 Codex profile 管理提供 Web RPC 映射", () => {
   assert.deepEqual(commandMap.service_codex_profile_get, {
     rpcMethod: "codexProfile/get",

@@ -98,6 +98,7 @@ interface MetricCardProps {
   icon: LucideIcon;
   color: string;
   sub: string;
+  detail?: string;
   badge?: string;
 }
 
@@ -252,19 +253,35 @@ function quotaIndicatorClass(tone: "green" | "blue") {
   return tone === "blue" ? "bg-blue-500" : "bg-green-500";
 }
 
-function MetricCard({ title, value, icon: Icon, color, sub, badge }: MetricCardProps) {
+function MetricCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  sub,
+  detail,
+  badge,
+}: MetricCardProps) {
   return (
-    <Card className="glass-card overflow-hidden shadow-sm transition-colors">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={cn("h-4 w-4", color)} />
+    <Card
+      size="sm"
+      className="glass-card min-h-[96px] overflow-hidden py-2 shadow-sm transition-colors"
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0.5">
+        <CardTitle className="text-xs font-medium">{title}</CardTitle>
+        <Icon className={cn("h-3 w-3", color)} />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className="mt-1 text-[10px] text-muted-foreground">{sub}</p>
+        <div className="text-lg font-bold leading-tight">{value}</div>
+        <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{sub}</p>
+        {detail ? (
+          <p className="mt-0.5 truncate text-[10px] leading-tight text-muted-foreground/80" title={detail}>
+            {detail}
+          </p>
+        ) : null}
         {badge ? (
-          <div className="mt-4 flex w-fit items-center gap-2 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-600 dark:text-blue-400">
-            <Activity className="h-3 w-3" />
+          <div className="mt-1.5 flex w-fit max-w-full items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] leading-tight text-blue-600 dark:text-blue-400">
+            <Activity className="h-2.5 w-2.5 shrink-0" />
             {badge}
           </div>
         ) : null}
@@ -657,7 +674,7 @@ function AdminUsageAnalyticsCard({
               {t("图表区域支持鼠标滚轮缩放")}
             </div>
           </div>
-          <div className="flex flex-col items-stretch gap-3 xl:items-end">
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <div className="flex flex-wrap items-center gap-2">
               <Select
                 value={rangePreset}
@@ -714,13 +731,6 @@ function AdminUsageAnalyticsCard({
                 </Button>
               ) : null}
             </div>
-            <div className="rounded-lg bg-primary/10 px-3 py-2 text-right text-xs">
-              <div className="text-muted-foreground">{rangeBadgeLabel}</div>
-              <div className="font-semibold text-primary">
-                {formatCompactTokenAmount(rangeUsage.totalTokens)}
-              </div>
-              <div className="text-muted-foreground">{formatUsd(rangeUsage.estimatedCostUsd)}</div>
-            </div>
           </div>
         </div>
       </CardHeader>
@@ -730,7 +740,16 @@ function AdminUsageAnalyticsCard({
           zoomWindow={zoomWindow}
           onZoomWindowChange={setZoomWindow}
         />
-        <div className="grid gap-3 text-xs sm:grid-cols-3">
+        <div className="grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg bg-background/30 px-3 py-2">
+            <div className="text-muted-foreground">{rangeBadgeLabel}</div>
+            <div className="mt-1 font-semibold text-primary">
+              {formatCompactTokenAmount(rangeUsage.totalTokens)}
+            </div>
+            <div className="text-muted-foreground">
+              {formatUsd(rangeUsage.estimatedCostUsd)}
+            </div>
+          </div>
           <div className="rounded-lg bg-background/30 px-3 py-2">
             <div className="text-muted-foreground">
               {isTodayOnlyRange ? t("今日请求") : t("区间请求")}
@@ -861,10 +880,10 @@ function AdminDashboard() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
-          Array.from({ length: 2 }).map((_, index) => (
-            <Skeleton key={index} className="h-36 w-full rounded-xl" />
+          Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 w-full rounded-xl" />
           ))
         ) : (
           <>
@@ -880,34 +899,80 @@ function AdminDashboard() {
                   : `${stats.available}/${stats.total} ${t("可用")}`
               }
             />
+            <MetricCard
+              title={t("可用账号")}
+              value={String(stats.available)}
+              icon={Activity}
+              color="text-emerald-500"
+              sub={`${stats.unavailable} ${t("不可用")}`}
+              badge={isDirectAccountMode ? t("账号直连模式下不可用") : t("可用")}
+            />
+            <MetricCard
+              title={t("今日用量")}
+              value={formatCompactTokenAmount(adminUsageSummary?.todayUsage.totalTokens ?? stats.todayTokens)}
+              icon={Zap}
+              color="text-violet-500"
+              sub={`${t("缓存 / 推理")}: ${formatCompactTokenAmount(adminUsageSummary?.todayUsage.cachedInputTokens ?? stats.cachedTokens)} / ${formatCompactTokenAmount(adminUsageSummary?.todayUsage.reasoningOutputTokens ?? stats.reasoningTokens)}`}
+              detail={
+                adminUsageSummary
+                  ? `${t("输入 / 输出")}: ${formatCompactTokenAmount(adminUsageSummary.todayUsage.inputTokens - adminUsageSummary.todayUsage.cachedInputTokens)} / ${formatCompactTokenAmount(adminUsageSummary.todayUsage.outputTokens)}`
+                  : undefined
+              }
+            />
+            <MetricCard
+              title={t("费用")}
+              value={formatUsd(adminUsageSummary?.todayUsage.estimatedCostUsd ?? stats.todayCost)}
+              icon={Wallet}
+              color="text-amber-500"
+              sub={
+                adminUsageSummary
+                  ? `${adminUsageSummary.todayUsage.requestCount} · ${t("成功")} ${adminUsageSummary.todayUsage.successCount}`
+                  : t("今日请求")
+              }
+            />
 
-            <Card className="overflow-hidden bg-primary/10 shadow-sm transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">{t("账号池剩余")}</CardTitle>
-                <PieChart className="h-4 w-4 text-primary" />
+            <Card
+              size="sm"
+              className="glass-card overflow-hidden py-3 shadow-sm transition-colors md:col-span-2 lg:col-span-4"
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                  <PieChart className="h-4 w-4 text-primary" />
+                  {t("账号池剩余")}
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="grid gap-4 lg:grid-cols-2">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="text-muted-foreground">{t("5小时内")}</span>
-                    <span className="font-bold">{formatPercent(stats.poolRemain?.primary)}</span>
+                    <span className="font-bold">
+                      {formatPercent(stats.poolRemain?.primary)}
+                    </span>
                   </div>
                   <Progress
                     value={poolPrimary}
                     trackClassName={quotaTrackClass("green")}
                     indicatorClassName={quotaIndicatorClass("green")}
                   />
+                  <div className="text-[10px] text-muted-foreground">
+                    {stats.poolRemain.primaryKnownCount}/{stats.poolRemain.primaryBucketCount}
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="text-muted-foreground">{t("7天内")}</span>
-                    <span className="font-bold">{formatPercent(stats.poolRemain?.secondary)}</span>
+                    <span className="font-bold">
+                      {formatPercent(stats.poolRemain?.secondary)}
+                    </span>
                   </div>
                   <Progress
                     value={poolSecondary}
                     trackClassName={quotaTrackClass("blue")}
                     indicatorClassName={quotaIndicatorClass("blue")}
                   />
+                  <div className="text-[10px] text-muted-foreground">
+                    {stats.poolRemain.secondaryKnownCount}/{stats.poolRemain.secondaryBucketCount}
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -125,6 +125,67 @@ fn insert_account_update_preserves_existing_token() {
 }
 
 #[test]
+fn upsert_imported_account_bundle_merges_metadata_and_token_in_one_call() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let now = now_ts();
+
+    let mut account = sample_account("acc-import-bundle", "active", now);
+    account.label = "Original".to_string();
+    storage.insert_account(&account).expect("insert account");
+    storage
+        .upsert_account_metadata(&account.id, Some("keep note"), Some("old tag"))
+        .expect("insert metadata");
+
+    let mut updated = account.clone();
+    updated.label = "Imported".to_string();
+    updated.updated_at = now.saturating_add(10);
+    let mut token = sample_token(&updated.id, now.saturating_add(10));
+    token.access_token = "imported-access".to_string();
+    token.refresh_token = "imported-refresh".to_string();
+
+    storage
+        .upsert_imported_account_bundle(&updated, None, Some("new tag"), &token)
+        .expect("upsert imported bundle");
+
+    let found = storage
+        .find_account_by_id(&updated.id)
+        .expect("find account")
+        .expect("account exists");
+    assert_eq!(found.label, "Imported");
+    let metadata = storage
+        .find_account_metadata(&updated.id)
+        .expect("find metadata")
+        .expect("metadata exists");
+    assert_eq!(metadata.note.as_deref(), Some("keep note"));
+    assert_eq!(metadata.tags.as_deref(), Some("new tag"));
+    let found_token = storage
+        .find_token_by_account_id(&updated.id)
+        .expect("find token")
+        .expect("token exists");
+    assert_eq!(found_token.access_token, "imported-access");
+    assert_eq!(found_token.refresh_token, "imported-refresh");
+}
+
+#[test]
+fn upsert_imported_account_bundle_rejects_mismatched_token_without_writing_account() {
+    let storage = Storage::open_in_memory().expect("open");
+    storage.init().expect("init");
+    let now = now_ts();
+    let account = sample_account("acc-import-mismatch", "active", now);
+    let token = sample_token("acc-import-other", now);
+
+    assert!(storage
+        .upsert_imported_account_bundle(&account, Some("note"), Some("tag"), &token)
+        .is_err());
+    assert!(storage
+        .find_account_by_id(&account.id)
+        .expect("find account")
+        .is_none());
+    assert_eq!(storage.token_count().expect("token count"), 0);
+}
+
+#[test]
 fn account_count_reads_account_cardinality_sql() {
     let storage = Storage::open_in_memory().expect("open");
     storage.init().expect("init");

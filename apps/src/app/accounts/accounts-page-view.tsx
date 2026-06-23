@@ -778,14 +778,14 @@ export function AccountsPageView(props: AccountsPageViewProps) {
                     onCheckedChange={toggleSelectAllVisible}
                   />
                 </TableHead>
-                <TableHead className="w-[clamp(220px,28vw,340px)] min-w-[220px] max-w-[340px] whitespace-normal">
+                <TableHead className="w-[clamp(280px,34vw,440px)] min-w-[280px] max-w-[440px] whitespace-normal">
                   {t("账号信息")}
                 </TableHead>
-                <TableHead className="min-w-[250px] text-center">
+                <TableHead className="min-w-[300px] text-center">
                   {t("额度详情")}
                 </TableHead>
-                <TableHead className="w-[156px]">{t("顺序")}</TableHead>
-                <TableHead>{t("状态")}</TableHead>
+                <TableHead className="w-[132px]">{t("顺序")}</TableHead>
+                <TableHead className="w-[112px]">{t("状态")}</TableHead>
                 <TableHead className="table-sticky-action-head w-[112px] text-center">
                   {t("操作")}
                 </TableHead>
@@ -859,7 +859,7 @@ export function AccountsPageView(props: AccountsPageViewProps) {
                           onCheckedChange={() => toggleSelect(account.id)}
                         />
                       </TableCell>
-                      <TableCell className="w-[clamp(220px,28vw,340px)] min-w-[220px] max-w-[340px] whitespace-normal align-top">
+                      <TableCell className="w-[clamp(280px,34vw,440px)] min-w-[280px] max-w-[440px] whitespace-normal align-top">
                         <AccountInfoCell
                           account={account}
                           isPreferred={account.preferred}

@@ -1,4 +1,4 @@
-use rusqlite::{params_from_iter, types::Value, Result, Row};
+use rusqlite::{params_from_iter, types::Value, OptionalExtension, Result, Row};
 
 use super::account_metadata::delete_account_metadata_for_account_sql;
 use super::account_subscriptions::delete_account_subscription_for_account_sql;
@@ -88,6 +88,123 @@ impl Storage {
             ),
         )?;
         Ok(())
+    }
+
+    pub fn upsert_imported_account_bundle(
+        &self,
+        account: &Account,
+        note: Option<&str>,
+        tags: Option<&str>,
+        token: &Token,
+    ) -> Result<()> {
+        if account.id != token.account_id {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "account id and token account id do not match".to_string(),
+            ));
+        }
+
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            "INSERT INTO accounts (
+                id,
+                label,
+                issuer,
+                chatgpt_account_id,
+                workspace_id,
+                group_name,
+                sort,
+                status,
+                created_at,
+                updated_at,
+                preferred
+            ) VALUES (
+                ?1,
+                ?2,
+                ?3,
+                ?4,
+                ?5,
+                ?6,
+                ?7,
+                ?8,
+                ?9,
+                ?10,
+                0
+            )
+             ON CONFLICT(id) DO UPDATE SET
+                label = excluded.label,
+                issuer = excluded.issuer,
+                chatgpt_account_id = excluded.chatgpt_account_id,
+                workspace_id = excluded.workspace_id,
+                group_name = excluded.group_name,
+                sort = excluded.sort,
+                status = excluded.status,
+                updated_at = excluded.updated_at",
+            (
+                &account.id,
+                &account.label,
+                &account.issuer,
+                &account.chatgpt_account_id,
+                &account.workspace_id,
+                &account.group_name,
+                account.sort,
+                &account.status,
+                account.created_at,
+                account.updated_at,
+            ),
+        )?;
+
+        let existing_metadata = tx
+            .query_row(
+                "SELECT note, tags
+                 FROM account_metadata
+                 WHERE account_id = ?1
+                 LIMIT 1",
+                [&account.id],
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let merged_note =
+            normalize_import_metadata_text(note).or_else(|| existing_metadata.as_ref()?.0.clone());
+        let merged_tags =
+            normalize_import_metadata_text(tags).or_else(|| existing_metadata.as_ref()?.1.clone());
+        if merged_note.is_none() && merged_tags.is_none() {
+            tx.execute(delete_account_metadata_for_account_sql(), [&account.id])?;
+        } else {
+            tx.execute(
+                "INSERT INTO account_metadata (account_id, note, tags, updated_at)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(account_id) DO UPDATE SET
+                    note = excluded.note,
+                    tags = excluded.tags,
+                    updated_at = excluded.updated_at",
+                (&account.id, merged_note, merged_tags, now_ts()),
+            )?;
+        }
+
+        tx.execute(
+            "INSERT INTO tokens (account_id, id_token, access_token, refresh_token, api_key_access_token, last_refresh)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(account_id) DO UPDATE SET
+                id_token = excluded.id_token,
+                access_token = excluded.access_token,
+                refresh_token = excluded.refresh_token,
+                api_key_access_token = excluded.api_key_access_token,
+                last_refresh = excluded.last_refresh",
+            (
+                &token.account_id,
+                &token.id_token,
+                &token.access_token,
+                &token.refresh_token,
+                &token.api_key_access_token,
+                token.last_refresh,
+            ),
+        )?;
+        tx.commit()
     }
 
     /// 函数 `account_count`
@@ -287,6 +404,40 @@ impl Storage {
         let mut stmt = self.conn.prepare(account_ids_list_sql())?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         rows.collect()
+    }
+
+    pub fn update_account_sorts(
+        &self,
+        updates: &[(String, i64)],
+        updated_at: i64,
+    ) -> Result<usize> {
+        if updates.is_empty() {
+            return Ok(0);
+        }
+
+        let tx = self.conn.unchecked_transaction()?;
+        let mut updated = 0usize;
+        for (account_id, sort) in updates {
+            let changed = tx.execute(update_account_sort_sql(), (sort, updated_at, account_id))?;
+            if changed == 0 {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "account not found: {account_id}"
+                )));
+            }
+            tx.execute(
+                "INSERT INTO events (account_id, type, message, created_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                (
+                    Some(account_id.as_str()),
+                    "account_sort_update",
+                    format!("sort={sort}"),
+                    updated_at,
+                ),
+            )?;
+            updated = updated.saturating_add(changed);
+        }
+        tx.commit()?;
+        Ok(updated)
     }
 
     pub fn list_account_ids_by_statuses(&self, statuses: &[String]) -> Result<Vec<String>> {
@@ -1639,6 +1790,13 @@ fn account_usage_refresh_targets_with_usable_tokens_by_statuses_chunk_sql(
            AND TRIM(COALESCE(t.access_token, '')) <> ''
            AND TRIM(COALESCE(t.refresh_token, '')) <> ''"
     )
+}
+
+fn normalize_import_metadata_text(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(ToString::to_string)
 }
 
 fn list_account_usage_refresh_token_targets_by_statuses_chunk(

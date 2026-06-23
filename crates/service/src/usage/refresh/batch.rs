@@ -6,7 +6,8 @@ use codexmanager_core::storage::{Storage, Token};
 use crossbeam_channel::unbounded;
 #[cfg(test)]
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -346,8 +347,20 @@ fn run_usage_refresh_tasks(tasks: Vec<UsageRefreshBatchTask>) -> Result<usize, S
     let worker_count = usage_refresh_worker_count().min(total);
     if worker_count <= 1 {
         let storage = open_storage().ok_or_else(|| "storage unavailable".to_string())?;
+        let mut succeeded = 0usize;
+        let mut first_error: Option<String> = None;
         for task in tasks {
-            run_usage_refresh_task(&storage, task);
+            match run_usage_refresh_task(&storage, task) {
+                Ok(()) => succeeded = succeeded.saturating_add(1),
+                Err(err) => {
+                    if first_error.is_none() {
+                        first_error = Some(err);
+                    }
+                }
+            }
+        }
+        if succeeded == 0 {
+            return Err(format_all_usage_refresh_failed(total, first_error));
         }
         return Ok(total);
     }
@@ -360,16 +373,31 @@ fn run_usage_refresh_tasks(tasks: Vec<UsageRefreshBatchTask>) -> Result<usize, S
     }
     drop(sender);
 
+    let succeeded = AtomicUsize::new(0);
+    let first_error = Mutex::new(None::<String>);
     thread::scope(|scope| -> Result<(), String> {
         let mut handles = Vec::with_capacity(worker_count);
         for worker_index in 0..worker_count {
             let receiver = receiver.clone();
+            let succeeded = &succeeded;
+            let first_error = &first_error;
             handles.push(scope.spawn(move || {
                 let storage = open_storage().ok_or_else(|| {
                     format!("usage refresh worker {worker_index} storage unavailable")
                 })?;
                 while let Ok(task) = receiver.recv() {
-                    run_usage_refresh_task(&storage, task);
+                    match run_usage_refresh_task(&storage, task) {
+                        Ok(()) => {
+                            succeeded.fetch_add(1, Ordering::Relaxed);
+                        }
+                        Err(err) => {
+                            if let Ok(mut guard) = first_error.lock() {
+                                if guard.is_none() {
+                                    *guard = Some(err);
+                                }
+                            }
+                        }
+                    }
                 }
                 Ok::<(), String>(())
             }));
@@ -385,7 +413,20 @@ fn run_usage_refresh_tasks(tasks: Vec<UsageRefreshBatchTask>) -> Result<usize, S
         Ok(())
     })?;
 
+    if succeeded.load(Ordering::Relaxed) == 0 {
+        let first_error = first_error.lock().ok().and_then(|guard| guard.clone());
+        return Err(format_all_usage_refresh_failed(total, first_error));
+    }
     Ok(total)
+}
+
+fn format_all_usage_refresh_failed(total: usize, first_error: Option<String>) -> String {
+    match first_error {
+        Some(error) if !error.trim().is_empty() => {
+            format!("usage refresh failed for all {total} account(s): {error}")
+        }
+        _ => format!("usage refresh failed for all {total} account(s)"),
+    }
 }
 
 /// 函数 `run_usage_refresh_task`
@@ -400,13 +441,17 @@ fn run_usage_refresh_tasks(tasks: Vec<UsageRefreshBatchTask>) -> Result<usize, S
 ///
 /// # 返回
 /// 无
-fn run_usage_refresh_task(storage: &Storage, task: UsageRefreshBatchTask) {
+fn run_usage_refresh_task(storage: &Storage, task: UsageRefreshBatchTask) -> Result<(), String> {
     let started_at = Instant::now();
     match refresh_usage_for_token(storage, &task.token, task.workspace_id.as_deref(), None) {
-        Ok(_) => record_usage_refresh_metrics(true, started_at),
+        Ok(_) => {
+            record_usage_refresh_metrics(true, started_at);
+            Ok(())
+        }
         Err(err) => {
             record_usage_refresh_metrics(false, started_at);
             record_usage_refresh_failure(storage, &task.account_id, &err);
+            Err(err)
         }
     }
 }

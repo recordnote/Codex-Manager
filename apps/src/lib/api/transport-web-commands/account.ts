@@ -10,6 +10,7 @@ export function createAccountWebCommands(postWebRpc: WebRpcCaller): Record<strin
     service_account_delete_by_statuses: { rpcMethod: "account/deleteByStatuses" },
     service_account_delete_unavailable_free: { rpcMethod: "account/deleteUnavailableFree" },
     service_account_update: { rpcMethod: "account/update" },
+    service_account_update_sorts: { rpcMethod: "account/updateSorts" },
     service_account_import: { rpcMethod: "account/import" },
     service_account_import_by_file: { direct: () => pickImportFilesFromBrowser(false) },
     service_account_import_by_directory: { direct: () => pickImportFilesFromBrowser(true) },

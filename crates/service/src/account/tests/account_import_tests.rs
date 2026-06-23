@@ -756,6 +756,8 @@ fn import_account_auth_json_keeps_valid_items_when_one_content_is_invalid() {
     assert_eq!(result.created, 1);
     assert_eq!(result.updated, 0);
     assert_eq!(result.failed, 1);
+    assert_eq!(result.imported_account_ids.len(), 1);
+    assert!(result.imported_account_ids.iter().all(|id| !id.is_empty()));
     assert!(result
         .errors
         .iter()
@@ -822,6 +824,7 @@ fn import_account_auth_json_handles_large_multi_batch_payload() {
     assert_eq!(result.created, 1000);
     assert_eq!(result.updated, 0);
     assert_eq!(result.failed, 0);
+    assert_eq!(result.imported_account_ids.len(), 1000);
     assert!(result.errors.is_empty());
 
     let storage = Storage::open(&db_path).expect("reopen storage");

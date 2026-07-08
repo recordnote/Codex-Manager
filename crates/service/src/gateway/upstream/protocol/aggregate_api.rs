@@ -226,11 +226,10 @@ fn normalize_minimax_responses_input(input: &mut Value) -> bool {
     };
     let mut parts = Vec::new();
     for item in items {
-        let Some(text) = minimax_input_item_text(item) else {
-            return false;
-        };
-        if !text.is_empty() {
-            parts.push(text);
+        if let Some(text) = minimax_input_item_text(item) {
+            if !text.is_empty() {
+                parts.push(text);
+            }
         }
     }
     if parts.is_empty() {

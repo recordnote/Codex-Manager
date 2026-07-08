@@ -673,10 +673,16 @@ fn gateway_aggregate_api_model_override_rewrites_minimax_responses_request() {
     let server = codexmanager_service::start_one_shot_server().expect("start server");
     let request = serde_json::json!({
         "model": "gpt-5.4",
-        "input": [{
-            "role": "user",
-            "content": [{ "type": "input_text", "text": "hello" }]
-        }],
+        "input": [
+            {
+                "type": "reasoning",
+                "summary": []
+            },
+            {
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "hello" }]
+            }
+        ],
         "stream": false
     });
     let request = serde_json::to_string(&request).expect("serialize request");

@@ -530,6 +530,58 @@ fn codex_probe_uses_configured_model_without_model_discovery() {
 }
 
 #[test]
+fn minimax_codex_probe_uses_responses_string_input() {
+    let server = Server::http("127.0.0.1:0").expect("start mock server");
+    let base_url = format!("http://{}", server.server_addr());
+    let (tx, rx) = mpsc::channel();
+    let join = thread::spawn(move || {
+        let mut request = server
+            .recv_timeout(Duration::from_secs(2))
+            .expect("receive responses request")
+            .expect("responses request present");
+        let mut body = String::new();
+        request
+            .as_reader()
+            .read_to_string(&mut body)
+            .expect("read request body");
+        tx.send((
+            request.method().as_str().to_string(),
+            request.url().to_string(),
+            body,
+        ))
+        .expect("send responses request");
+        request
+            .respond(Response::from_string(
+                r#"{"id":"resp_probe","output_text":"ok"}"#,
+            ))
+            .expect("respond responses");
+    });
+
+    let mut api = aggregate_api_with_action(None);
+    api.provider_type = "codex".to_string();
+    api.supplier_name = Some("MiniMax".to_string());
+    api.url = format!("{base_url}/v1");
+    api.model_override = Some("MiniMax-M3".to_string());
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .expect("build client");
+
+    let status = probe_codex_endpoint(&client, &api, "secret").expect("probe succeeds");
+
+    assert_eq!(status, 200);
+    let captured = rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("captured request");
+    join.join().expect("join mock server");
+    assert_eq!(captured.0, "POST");
+    assert_eq!(captured.1, "/v1/responses");
+    let body: Value = serde_json::from_str(captured.2.as_str()).expect("parse body");
+    assert_eq!(body["model"], "MiniMax-M3");
+    assert_eq!(body["input"], "Who are you?");
+}
+
+#[test]
 fn claude_probe_uses_discovered_model_before_fallbacks() {
     let server = Server::http("127.0.0.1:0").expect("start mock server");
     let base_url = format!("http://{}", server.server_addr());

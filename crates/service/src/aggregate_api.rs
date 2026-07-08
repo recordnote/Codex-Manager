@@ -1317,6 +1317,22 @@ fn build_codex_probe_body() -> serde_json::Value {
     })
 }
 
+fn is_minimax_aggregate_api(api: &AggregateApi) -> bool {
+    if api
+        .supplier_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some_and(|value| value.to_ascii_lowercase().contains("minimax"))
+    {
+        return true;
+    }
+    reqwest::Url::parse(api.url.as_str())
+        .ok()
+        .and_then(|url| url.host_str().map(|host| host.to_ascii_lowercase()))
+        .is_some_and(|host| host == "minimax.io" || host.ends_with(".minimax.io"))
+}
+
 fn build_gemini_probe_body() -> serde_json::Value {
     json!({
         "contents": [{
@@ -1648,11 +1664,19 @@ fn probe_codex_responses_endpoint(
             "stream": false
         })
     } else if let Some(model_override) = api.model_override.as_deref() {
-        let mut body = build_codex_probe_body();
-        if let Some(obj) = body.as_object_mut() {
-            obj.insert("model".to_string(), json!(model_override));
+        if is_minimax_aggregate_api(api) {
+            json!({
+                "model": model_override,
+                "input": "Who are you?",
+                "stream": false
+            })
+        } else {
+            let mut body = build_codex_probe_body();
+            if let Some(obj) = body.as_object_mut() {
+                obj.insert("model".to_string(), json!(model_override));
+            }
+            body
         }
-        body
     } else {
         build_codex_probe_body()
     };
